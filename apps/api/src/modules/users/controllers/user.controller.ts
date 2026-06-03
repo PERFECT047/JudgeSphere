@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as userService from "../services/user.service";
-import { CreateUserDtoSchema, LoginDtoSchema } from "@repo/dto"
+import { CreateUserDtoSchema, LoginDtoSchema, RefreshTokenDtoSchema } from "@repo/dto"
 
 
 export const signup = async (
@@ -28,6 +28,22 @@ export const login = async (
     const payload = LoginDtoSchema.parse(req.body);
 
     const result = await userService.signin(payload);
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const refresh = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const payload = RefreshTokenDtoSchema.parse(req.body);
+
+    const result = await userService.refreshTokenService(payload);
 
     res.json(result);
   } catch (err) {

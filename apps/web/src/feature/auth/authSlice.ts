@@ -1,10 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { loginUser, signupUser } from "./authThunk";
+import { loginUser, signupUser, refreshToken } from "./authThunk";
 import type { UserDto } from "@repo/dto";
 
 interface AuthState {
   user: UserDto | null;
   token: string | null;
+  refreshToken: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -12,6 +13,7 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   token: localStorage.getItem("token"),
+  refreshToken: localStorage.getItem("refreshToken"),
   loading: false,
   error: null,
 };
@@ -23,7 +25,9 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.refreshToken = null;
       localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
     },
   },
   extraReducers: (builder) => {
@@ -36,6 +40,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -49,10 +54,26 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
       })
       .addCase(signupUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? action.error?.message ?? null;
+      })
+      .addCase(refreshToken.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(refreshToken.fulfilled, (state, action) => {
+        state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken;
+      })
+      .addCase(refreshToken.rejected, (state, action) => {
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+        state.error = action.payload ?? action.error?.message ?? null;
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
       });
   },
 });

@@ -2,9 +2,12 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import path from "path";
 
+import { StringValue } from "ms";
 
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
+const msString = z.string().refine((val): val is StringValue => true);
 
 const serverEnvSchema = z.object({
   PORT: z.coerce.number().default(8080),
@@ -28,6 +31,8 @@ const serverEnvSchema = z.object({
 
   MONGO_URI: z.string().min(1),
   JWT_SECRET: z.string().default("dev-secret"),
+  JWT_EXPIRY: msString.default("7d"),
+  REFRESH_TOKEN_EXPIRY: msString.default("15d"),
 });
 
 export type ServerEnv = z.infer<

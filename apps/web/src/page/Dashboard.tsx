@@ -1,13 +1,20 @@
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout } from "../feature/auth/authSlice";
+import { logoutAPI } from "../feature/auth/authAPI";
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    window.location.href = "/";
+  const handleLogout = async () => {
+    try {
+      await logoutAPI();
+    } catch (error) {
+      console.error("Logout API error:", error);
+    } finally {
+      dispatch(logout());
+      window.location.href = "/";
+    }
   };
 
   return (
@@ -44,11 +51,6 @@ export default function Dashboard() {
           className="px-6 py-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-semibold rounded-lg transition-all duration-150 shadow-md hover:shadow-red-500/20"
         >
           Logout
-        </button>
-        <button
-          className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold rounded-lg transition-all duration-150"
-        >
-          Settings
         </button>
       </div>
     </div>

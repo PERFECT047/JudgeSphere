@@ -1,5 +1,6 @@
 import axios from "axios";
 import { handleFrontendError } from "../common/errorHandler";
+import { store } from "../app/store";
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -21,7 +22,8 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const state = store.getState();
+  const token = state.auth.token;
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -44,7 +46,9 @@ instance.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(() => {
-          originalRequest.headers.Authorization = `Bearer ${localStorage.getItem("token")}`;
+          const state = store.getState();
+          const token = state.auth.token;
+          originalRequest.headers.Authorization = `Bearer ${token}`;
           return instance(originalRequest);
         });
       }
@@ -53,23 +57,13 @@ instance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        
-        if (!refreshToken) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("refreshToken");
-          window.location.href = "/login";
-          return Promise.reject(error);
-        }
-
-        const response = await axios.post<{ token: string; refreshToken: string }>(
+        const response = await axios.post<{ token: string }>(
           `${import.meta.env.VITE_API_URL}/user/refresh`,
-          { refreshToken }
+          {},
+          { withCredentials: true }
         );
 
-        const { token, refreshToken: newRefreshToken } = response.data;
-        localStorage.setItem("token", token);
-        localStorage.setItem("refreshToken", newRefreshToken);
+        const { token } = response.data;
 
         originalRequest.headers.Authorization = `Bearer ${token}`;
         processQueue(null, token);
@@ -77,11 +71,9 @@ instance.interceptors.response.use(
 
         return instance(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        window.location.href = "/login";
         processQueue(refreshError, null);
         isRefreshing = false;
+        window.location.href = "/login";
         return Promise.reject(refreshError);
       }
     }

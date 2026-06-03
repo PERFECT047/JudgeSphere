@@ -6,7 +6,7 @@ type ThemeVariant = {
 
 type ColorPaletteShape = Readonly<Record<string, ThemeVariant>>;
 
-export const colorPalette: ColorPaletteShape = {
+export const colorPalette = {
   // ===== BACKGROUND COLORS =====
   background: {
     light: {
@@ -198,7 +198,7 @@ export const colorPalette: ColorPaletteShape = {
       cyan: "0 0 20px rgba(6, 182, 212, 0.15)", // cyan glow
     },
   },
-};
+} as const satisfies ColorPaletteShape;
 
 type ColorPalette = typeof colorPalette;
 type ColorCategory = keyof ColorPalette;

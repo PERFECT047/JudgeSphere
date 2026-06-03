@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios"; // 👈 Required for the type guard
+import axios from "axios";
 import { loginAPI, signupAPI, refreshTokenAPI } from "./authAPI";
 import type { LoginDto, CreateUserDto, AuthResponseDto, RefreshTokenResponseDto } from "@repo/dto";
 
@@ -12,8 +12,6 @@ export const loginUser = createAsyncThunk<
   async (credentials: LoginDto, thunkAPI) => {
     try {
       const response = await loginAPI(credentials);
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("refreshToken", response.refreshToken);
       return response;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
@@ -38,8 +36,6 @@ export const signupUser = createAsyncThunk<
   async (credentials: CreateUserDto, thunkAPI) => {
     try {
       const response = await signupAPI(credentials);
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("refreshToken", response.refreshToken);
       return response;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
@@ -63,14 +59,7 @@ export const refreshToken = createAsyncThunk<
   "auth/refreshToken",
   async (_, thunkAPI) => {
     try {
-      const refreshTokenValue = localStorage.getItem("refreshToken");
-      if (!refreshTokenValue) {
-        return thunkAPI.rejectWithValue("No refresh token available");
-      }
-
-      const response = await refreshTokenAPI({ refreshToken: refreshTokenValue });
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("refreshToken", response.refreshToken);
+      const response = await refreshTokenAPI();
       return response;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {

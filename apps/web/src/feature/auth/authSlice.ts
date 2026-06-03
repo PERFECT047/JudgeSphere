@@ -1,22 +1,27 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { loginUser, signupUser, refreshToken } from "./authThunk";
-import type { UserDto } from "@repo/dto";
+import type { PayloadAction, Action, SerializedError } from "@reduxjs/toolkit"
+import type { UserDto, AuthResponseDto, RefreshTokenResponseDto } from "@repo/dto";
 
 interface AuthState {
   user: UserDto | null;
   token: string | null;
-  refreshToken: string | null;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem("token"),
-  refreshToken: localStorage.getItem("refreshToken"),
+  token: null,
   loading: false,
   error: null,
 };
+
+interface RejectedAction extends Action {
+  payload?: string;
+  error?: SerializedError;
+}
+
+const isActionType = (action: Action, type: string) => action.type === type;
 
 const authSlice = createSlice({
   name: "auth",
@@ -25,56 +30,70 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
-      state.refreshToken = null;
-      localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loginUser.pending, (state) => {
+      // --- loginUser ---
+      .addMatcher((action) => isActionType(action, "auth/loginUser/pending"), (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
-      })
-      .addCase(loginUser.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload ?? action.error?.message ?? null;
-      })
-      .addCase(signupUser.pending, (state) => {
+      .addMatcher(
+        (action) => isActionType(action, "auth/loginUser/fulfilled"), 
+        (state, action: PayloadAction<AuthResponseDto>) => {
+          state.loading = false;
+          state.user = action.payload.user;
+          state.token = action.payload.token;
+        }
+      )
+      .addMatcher(
+        (action) => isActionType(action, "auth/loginUser/rejected"), 
+        (state, action: RejectedAction) => {
+          state.loading = false;
+          state.error = action.payload ?? action.error?.message ?? "Login failed";
+        }
+      )
+
+      // --- signupUser ---
+      .addMatcher((action) => isActionType(action, "auth/signupUser/pending"), (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(signupUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
-      })
-      .addCase(signupUser.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload ?? action.error?.message ?? null;
-      })
-      .addCase(refreshToken.pending, (state) => {
+      .addMatcher(
+        (action) => isActionType(action, "auth/signupUser/fulfilled"), 
+        (state, action: PayloadAction<AuthResponseDto>) => {
+          state.loading = false;
+          state.user = action.payload.user;
+          state.token = action.payload.token;
+        }
+      )
+      .addMatcher(
+        (action) => isActionType(action, "auth/signupUser/rejected"), 
+        (state, action: RejectedAction) => {
+          state.loading = false;
+          state.error = action.payload ?? action.error?.message ?? "Signup failed";
+        }
+      )
+
+      // --- refreshToken ---
+      .addMatcher((action) => isActionType(action, "auth/refreshToken/pending"), (state) => {
         state.error = null;
       })
-      .addCase(refreshToken.fulfilled, (state, action) => {
-        state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
-      })
-      .addCase(refreshToken.rejected, (state, action) => {
-        state.user = null;
-        state.token = null;
-        state.refreshToken = null;
-        state.error = action.payload ?? action.error?.message ?? null;
-        localStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-      });
+      .addMatcher(
+        (action) => isActionType(action, "auth/refreshToken/fulfilled"), 
+        (state, action: PayloadAction<RefreshTokenResponseDto>) => {
+          state.token = action.payload.token;
+        }
+      )
+      .addMatcher(
+        (action) => isActionType(action, "auth/refreshToken/rejected"), 
+        (state, action: RejectedAction) => {
+          state.user = null;
+          state.token = null;
+          state.error = action.payload ?? action.error?.message ?? "Session expired";
+        }
+      );
   },
 });
 

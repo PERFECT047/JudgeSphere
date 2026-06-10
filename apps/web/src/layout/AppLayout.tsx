@@ -3,11 +3,10 @@ import ThemeToggle from "../component/ThemeToggle";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-
-    <div className="w-screen min-h-screen bg-[#f8fafc] dark:bg-[#09090b] transition-colors duration-300 relative overflow-hidden">
+    <div className="w-screen min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative overflow-hidden">
       
+      {/* Decorative gradient blobs */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-40 dark:opacity-70 mix-blend-multiply dark:mix-blend-normal">
-
         <div 
           className="
             absolute 
@@ -43,6 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         />
       </div>
 
+      {/* Grid pattern overlay */}
       <div 
         className="
           absolute 
@@ -56,14 +56,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         " 
       />
 
+      {/* Theme Toggle Button */}
       <div className="absolute top-6 right-6 z-50">
         <ThemeToggle />
       </div>
 
+      {/* Main Content */}
       <main className="relative z-10 min-h-screen w-full flex items-center justify-center p-6">
         {children}
       </main>
-
     </div>
   );
 }

@@ -18,7 +18,6 @@ export default function LoginPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Clear validation errors dynamically as the user modifies the input field
     if (fieldErrors[e.target.name]) {
       setFieldErrors((prev) => {
         const copy = { ...prev };
@@ -34,14 +33,12 @@ export default function LoginPage() {
 
     try {
       if (isSignup) {
-        // Run full registration validation rules locally
         const parsedData = CreateUserDtoSchema.parse(formData);
         const resultAction = await dispatch(signupUser(parsedData));
         if (signupUser.fulfilled.match(resultAction)) {
           window.location.href = "/dashboard";
         }
       } else {
-        // Run authentication validation rules locally
         const parsedData = LoginDtoSchema.parse({
           email: formData.email,
           password: formData.password,

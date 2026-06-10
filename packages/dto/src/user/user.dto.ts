@@ -37,5 +37,19 @@ export type LoginDto = z.infer<typeof LoginDtoSchema>;
 export const AuthResponseDtoSchema = z.object({
   user: UserDtoSchema,
   token: z.string(),
+  refreshToken: z.string(),
 }).strict();
 export type AuthResponseDto = z.infer<typeof AuthResponseDtoSchema>;
+
+
+export const RefreshTokenDtoSchema = z.object({
+  refreshToken: z.string().min(1, "Refresh token is required"),
+}).strict();
+export type RefreshTokenDto = z.infer<typeof RefreshTokenDtoSchema>;
+
+
+export const RefreshTokenResponseDtoSchema = z.object({
+  token: z.string(),
+  refreshToken: z.string(),
+}).strict();
+export type RefreshTokenResponseDto = z.infer<typeof RefreshTokenResponseDtoSchema>;

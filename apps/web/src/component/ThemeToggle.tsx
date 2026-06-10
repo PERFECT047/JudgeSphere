@@ -23,18 +23,13 @@ export default function ThemeToggle() {
         p-2.5
         rounded-xl
         border
-        /* Light mode styling: explicit light background and contrasting border */
         bg-white
         border-slate-200
         text-slate-700
         shadow-sm
-        
-        /* Dark mode styling */
         dark:bg-slate-900
         dark:border-slate-800
         dark:text-slate-200
-        
-        /* Interactive feedback */
         hover:scale-105
         active:scale-95
         transition-all

@@ -11,7 +11,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
-  token: null,
+  token: localStorage.getItem("token"),
   loading: false,
   error: null,
 };
@@ -30,6 +30,7 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      localStorage.removeItem("token");
     },
   },
   extraReducers: (builder) => {
@@ -45,6 +46,7 @@ const authSlice = createSlice({
           state.loading = false;
           state.user = action.payload.user;
           state.token = action.payload.token;
+          localStorage.setItem("token", action.payload.token);
         }
       )
       .addMatcher(
@@ -66,6 +68,7 @@ const authSlice = createSlice({
           state.loading = false;
           state.user = action.payload.user;
           state.token = action.payload.token;
+          localStorage.setItem("token", action.payload.token);
         }
       )
       .addMatcher(
@@ -91,6 +94,7 @@ const authSlice = createSlice({
         (state, action: RejectedAction) => {
           state.user = null;
           state.token = null;
+          localStorage.removeItem("token");
           state.error = action.payload ?? action.error?.message ?? "Session expired";
         }
       );

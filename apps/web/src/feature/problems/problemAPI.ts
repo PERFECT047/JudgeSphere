@@ -20,7 +20,6 @@ export interface Problem {
   }[];
   tags: string[];
   topics: string[];
-  starterCode: Record<string, string>;
   leetcodeNumber?: number;
   note?: string;
   isPremium: boolean;

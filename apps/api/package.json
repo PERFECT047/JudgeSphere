@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "nodemon dist/server.js"
+    "start": "nodemon dist/server.js",
+    "docker:build": "bash scripts/build-docker-images.sh"
   },
   "dependencies": {
     "@repo/dto": "*",

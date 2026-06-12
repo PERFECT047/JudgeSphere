@@ -46,3 +46,16 @@ export const getSubmissionsAPI = async (problemSlug: string): Promise<Submission
   const response = await axios.get<Submission[]>(`/submissions/${problemSlug}`);
   return response.data;
 };
+
+export interface RunCustomTestCaseRequest {
+  problemSlug: string;
+  language: string;
+  code: string;
+  input: string;
+  expectedOutput?: string;
+}
+
+export const runCustomTestCaseAPI = async (data: RunCustomTestCaseRequest): Promise<RunCodeResponse> => {
+  const response = await axios.post<RunCodeResponse>("/submissions/run-custom", data);
+  return response.data;
+};

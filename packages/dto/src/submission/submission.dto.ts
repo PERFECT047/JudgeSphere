@@ -17,12 +17,27 @@ export const SubmitCodeDtoSchema = z.object({
 export type SubmitCodeDto = z.infer<typeof SubmitCodeDtoSchema>;
 
 
+export const JudgeStatusSchema = z.enum([
+  "Accepted",
+  "Wrong Answer",
+  "Runtime Error",
+  "Compilation Error",
+  "Time Limit Exceeded",
+  "Internal Error",
+]);
+export type JudgeStatus = z.infer<typeof JudgeStatusSchema>;
+
+
 export const TestCaseResultSchema = z.object({
   passed: z.boolean(),
   input: z.string(),
   expected: z.string(),
   actual: z.string(),
-  runtime: z.number().optional(),
+  stdout: z.string().optional(),
+  stderr: z.string().optional(),
+  compileOutput: z.string().optional(),
+  runtime: z.number(),
+  status: JudgeStatusSchema,
 });
 export type TestCaseResult = z.infer<typeof TestCaseResultSchema>;
 
@@ -31,7 +46,8 @@ export const SubmissionResultSchema = z.object({
   _id: z.string().optional(),
   problemSlug: z.string(),
   language: z.string(),
-  status: z.enum(["Accepted", "Wrong Answer", "Runtime Error"]),
+  code: z.string().optional(),
+  status: JudgeStatusSchema,
   totalTestCases: z.number(),
   passedTestCases: z.number(),
   testCaseResults: z.array(TestCaseResultSchema),
@@ -43,7 +59,7 @@ export type SubmissionResult = z.infer<typeof SubmissionResultSchema>;
 export const RunCodeResponseSchema = z.object({
   totalTestCases: z.number(),
   passedTestCases: z.number(),
-  status: z.enum(["Accepted", "Wrong Answer", "Runtime Error"]),
+  status: JudgeStatusSchema,
   testCaseResults: z.array(TestCaseResultSchema),
 });
 export type RunCodeResponse = z.infer<typeof RunCodeResponseSchema>;

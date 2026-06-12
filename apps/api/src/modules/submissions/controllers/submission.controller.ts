@@ -34,3 +34,20 @@ export const getSubmissions = async (req: Request, res: Response, next: NextFunc
     next(err);
   }
 };
+
+export const runCustomTestCase = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const { problemSlug, language, code, input, expectedOutput } = req.body;
+    const result = await submissionService.runCustomTestCase(userId, {
+      problemSlug,
+      language,
+      code,
+      input,
+      expectedOutput,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};

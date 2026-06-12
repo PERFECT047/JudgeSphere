@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { loginUser, signupUser } from "../feature/auth/authThunk";
 import { CreateUserDtoSchema, LoginDtoSchema } from "@repo/dto";
@@ -8,7 +8,7 @@ import { z } from "zod";
 export default function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error: apiError } = useAppSelector((state) => state.auth);
+  const { loading, error: apiError, token } = useAppSelector((state) => state.auth);
 
   const [isSignup, setIsSignup] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -17,6 +17,11 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+
+  // If user is already logged in, redirect to dashboard
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -38,7 +43,7 @@ export default function LoginPage() {
         const parsedData = CreateUserDtoSchema.parse(formData);
         const resultAction = await dispatch(signupUser(parsedData));
         if (signupUser.fulfilled.match(resultAction)) {
-          navigate("/problems");
+          navigate("/dashboard");
         }
       } else {
         const parsedData = LoginDtoSchema.parse({
@@ -47,7 +52,7 @@ export default function LoginPage() {
         });
         const resultAction = await dispatch(loginUser(parsedData));
         if (loginUser.fulfilled.match(resultAction)) {
-          navigate("/problems");
+          navigate("/dashboard");
         }
       }
     } catch (zodError) {

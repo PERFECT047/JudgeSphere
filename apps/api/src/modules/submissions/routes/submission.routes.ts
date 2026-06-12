@@ -6,6 +6,7 @@ const router = Router();
 
 router.post("/run", requireAuth, submissionController.run);
 router.post("/submit", requireAuth, submissionController.submit);
+router.post("/run-custom", requireAuth, submissionController.runCustomTestCase);
 router.get("/:problemSlug", requireAuth, submissionController.getSubmissions);
 
 export default router;

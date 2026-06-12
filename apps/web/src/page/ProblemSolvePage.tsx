@@ -15,11 +15,13 @@ import {
   Code,
   LogOut,
   GripVertical,
+  TestTube,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout } from "../feature/auth/authSlice";
 import { logoutAPI } from "../feature/auth/authAPI";
 import { getProblemBySlug, type Problem } from "../feature/problems/problemAPI";
+import { getTemplateByLanguage, getSnippetsForLanguage, saveUserTemplate, type CodeSnippet } from "../feature/snippets/snippetsAPI";
 import {
   runCode,
   submitCode,
@@ -27,6 +29,16 @@ import {
   clearCurrentResult,
 } from "../feature/submissions/submissionSlice";
 import type { Submission, TestCaseResult } from "../feature/submissions/submissionAPI";
+import { runCustomTestCaseAPI } from "../feature/submissions/submissionAPI";
+import type * as MonacoEditor from "monaco-editor";
+
+interface MonacoWindow extends Window {
+  monaco: typeof MonacoEditor;
+}
+
+interface EditorWithSnippetProvider extends MonacoEditor.editor.IStandaloneCodeEditor {
+  __snippetProvider?: MonacoEditor.IDisposable;
+}
 
 const LANGUAGES = [
   { id: "javascript", label: "JavaScript", monacoId: "javascript", extension: "js" },
@@ -63,8 +75,14 @@ export default function ProblemSolvePage() {
   // Editor state
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [code, setCode] = useState("");
-  const [activeTab, setActiveTab] = useState<"description" | "submissions">("description");
+  const [activeTab, setActiveTab] = useState<"description" | "submissions" | "testcases">("description");
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
+  // Custom test case state
+  const [customInput, setCustomInput] = useState("");
+  const [customExpected, setCustomExpected] = useState("");
+  const [customResult, setCustomResult] = useState<TestCaseResult | null>(null);
+  const [customLoading, setCustomLoading] = useState(false);
 
   // Split panel state
   const [splitPosition, setSplitPosition] = useState(() => {
@@ -101,8 +119,6 @@ export default function ProblemSolvePage() {
       try {
         const data = await getProblemBySlug(slug);
         setProblem(data);
-        const starter = data.starterCode[selectedLanguage.id] || data.starterCode.javascript || "";
-        setCode(starter);
       } catch (error) {
         console.error("Failed to fetch problem:", error);
       } finally {
@@ -111,6 +127,24 @@ export default function ProblemSolvePage() {
     };
     fetchProblem();
   }, [slug]);
+
+  // Fetch template for selected language
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      try {
+        const templateData = await getTemplateByLanguage(selectedLanguage.id);
+        setCode(templateData.code);
+      } catch {
+        // Fallback: set empty code
+        setCode("");
+      }
+    };
+
+    // Only fetch template if problem is loaded (don't override on first load)
+    if (problem) {
+      fetchTemplate();
+    }
+  }, [selectedLanguage, problem]);
 
 
   // Fetch submissions when tab changes to submissions
@@ -163,14 +197,94 @@ export default function ProblemSolvePage() {
     };
   }, [handleDragMove, handleDragEnd]);
 
-  const handleEditorDidMount = (editor: Parameters<NonNullable<React.ComponentProps<typeof Editor>["onMount"]>>[0]) => {
-    editorRef.current = editor;
-    editor.focus();
-  };
+  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
+
+  // Fetch snippets for the selected language
+  useEffect(() => {
+    const fetchSnippets = async () => {
+      try {
+        const data = await getSnippetsForLanguage(selectedLanguage.id);
+        setSnippets(data.snippets);
+      } catch {
+        setSnippets([]);
+      }
+    };
+    fetchSnippets();
+  }, [selectedLanguage, problem]);
+
+  // Register Monaco completion provider for snippets
+  const handleEditorDidMount = (
+  editor: Parameters<NonNullable<React.ComponentProps<typeof Editor>["onMount"]>>[0]
+) => {
+  editorRef.current = editor;
+  editor.focus();
+
+  const monacoWindow = window as unknown as MonacoWindow;
+
+  if (typeof monacoWindow.monaco !== "undefined") {
+    const monaco = monacoWindow.monaco;
+    const typedEditor = editor as EditorWithSnippetProvider;
+
+    if (typedEditor.__snippetProvider) {
+      typedEditor.__snippetProvider.dispose();
+    }
+
+    typedEditor.__snippetProvider = monaco.languages.registerCompletionItemProvider("*", {
+      provideCompletionItems: (model, position) => {
+        if (model !== editor.getModel()) {
+          return { suggestions: [] };
+        }
+
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+
+        const snippetSuggestions = snippets.map((snippet) => ({
+          label: {
+            label: snippet.prefix,
+            description: snippet.description,
+          },
+          kind: monaco.languages.CompletionItemKind.Snippet,
+          detail: snippet.isBuiltIn ? "[Snippet]" : "[Custom]",
+          insertText: snippet.body,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          range,
+          documentation: {
+            value: `**${snippet.prefix}**\n\n${snippet.description || ""}\n\n\`\`\`\n${snippet.body}\n\`\`\``,
+          },
+          sortText: `0_${snippet.prefix}`,
+        }));
+
+        return { suggestions: snippetSuggestions };
+      },
+      triggerCharacters: [".", " "],
+    });
+  }
+};
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value);
+    }
+  };
+
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+
+  const handleSaveAsTemplate = async () => {
+    setSavingTemplate(true);
+    try {
+      await saveUserTemplate({ language: selectedLanguage.id, code });
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save template:", err);
+    } finally {
+      setSavingTemplate(false);
     }
   };
 
@@ -199,6 +313,8 @@ export default function ProblemSolvePage() {
   const handleLanguageChange = (lang: (typeof LANGUAGES)[0]) => {
     setSelectedLanguage(lang);
     setShowLanguageDropdown(false);
+    // Clear code so new template loads
+    setCode("");
   };
 
   const handleLogout = async () => {
@@ -268,6 +384,17 @@ export default function ProblemSolvePage() {
         >
           <History className="w-4 h-4" />
           Submissions
+        </button>
+        <button
+          onClick={() => setActiveTab("testcases")}
+          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${
+            activeTab === "testcases"
+              ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+          }`}
+        >
+          <TestTube className="w-4 h-4" />
+          Testcases
         </button>
       </div>
 
@@ -339,6 +466,127 @@ export default function ProblemSolvePage() {
                   Note:
                 </div>
                 <div className="text-sm text-slate-600 dark:text-slate-300">{problem.note}</div>
+              </div>
+            )}
+          </div>
+        ) : activeTab === "testcases" ? (
+          /* Testcases Tab */
+          <div className="space-y-4">
+            <div className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              Run your code against custom test cases. Expected output is optional.
+            </div>
+            
+            {/* Custom Input */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                Input
+              </label>
+              <textarea
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="Enter your test input here..."
+                className="w-full h-32 px-3 py-2 text-sm font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Expected Output (Optional) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                Expected Output <span className="text-slate-400 dark:text-slate-500">(optional)</span>
+              </label>
+              <textarea
+                value={customExpected}
+                onChange={(e) => setCustomExpected(e.target.value)}
+                placeholder="Enter expected output (optional)..."
+                className="w-full h-24 px-3 py-2 text-sm font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Run Custom Test Button */}
+            <button
+              onClick={async () => {
+                if (!problem || !customInput.trim()) return;
+                setCustomLoading(true);
+                setCustomResult(null);
+                try {
+                  const result = await runCustomTestCaseAPI({
+                    problemSlug: problem.slug,
+                    language: selectedLanguage.id,
+                    code,
+                    input: customInput,
+                    expectedOutput: customExpected || undefined,
+                  });
+                  if (result.testCaseResults.length > 0) {
+                    setCustomResult(result.testCaseResults[0]);
+                  }
+                } catch (err) {
+                  console.error("Custom test failed:", err);
+                } finally {
+                  setCustomLoading(false);
+                }
+              }}
+              disabled={customLoading || !customInput.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-sm text-white hover:bg-teal-700 active:scale-95 transition-all duration-150 shadow-md disabled:opacity-50"
+            >
+              {customLoading ? (
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <TestTube className="w-4 h-4" />
+              )}
+              Run Custom Test
+            </button>
+
+            {/* Custom Test Result */}
+            {customResult && (
+              <div className={`border rounded-xl overflow-hidden ${
+                customResult.passed
+                  ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-900/10"
+                  : "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10"
+              }`}>
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                  {customResult.passed ? (
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  )}
+                  <span className={`text-sm font-semibold ${
+                    customResult.passed
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-red-700 dark:text-red-400"
+                  }`}>
+                    {customResult.passed ? "Passed" : "Failed"}
+                  </span>
+                  {customResult.runtime && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {customResult.runtime}ms
+                    </span>
+                  )}
+                </div>
+                <div className="px-4 py-3 space-y-2 text-sm">
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Input: </span>
+                    <code className="text-green-700 dark:text-green-400 font-mono text-xs bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                      {customResult.input}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Expected: </span>
+                    <code className="text-blue-700 dark:text-blue-400 font-mono text-xs bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
+                      {customResult.expected}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Your output: </span>
+                    <code className={`font-mono text-xs px-1.5 py-0.5 rounded ${
+                      customResult.passed
+                        ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                        : "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                    }`}>
+                      {customResult.actual}
+                    </code>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -566,6 +814,24 @@ export default function ProblemSolvePage() {
               <Send className="w-4 h-4" />
             )}
             Submit
+          </button>
+
+          {/* Save as Template Button */}
+          <button
+            onClick={handleSaveAsTemplate}
+            disabled={savingTemplate}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all shadow-md ${
+              templateSaved
+                ? "bg-green-600 text-white"
+                : "bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 dark:hover:border-purple-600 hover:text-purple-600 dark:hover:text-purple-400"
+            } disabled:opacity-50`}
+          >
+            {savingTemplate ? (
+              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full"></div>
+            ) : (
+              <FileText className="w-4 h-4" />
+            )}
+            {templateSaved ? "Saved!" : "Save Template"}
           </button>
 
           {/* Logout Button */}

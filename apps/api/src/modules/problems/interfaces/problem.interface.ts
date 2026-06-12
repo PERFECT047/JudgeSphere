@@ -22,7 +22,6 @@ export interface IProblem {
   testCases: ITestCase[];
   tags: string[];
   topics: string[];
-  starterCode: Record<string, string>; // language -> starter code
   leetcodeNumber?: number; // Original LeetCode number for reference
   note?: string; // Brief note/hint
   acceptanceRate?: number;

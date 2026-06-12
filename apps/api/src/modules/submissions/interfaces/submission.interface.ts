@@ -1,11 +1,16 @@
 import { ObjectId } from "mongodb";
+import type { JudgeStatus } from "../../judge/judge.interface";
 
 export interface ITestCaseResult {
   passed: boolean;
   input: string;
   expected: string;
   actual: string;
-  runtime?: number;
+  stdout?: string;
+  stderr?: string;
+  compileOutput?: string;
+  runtime: number;
+  status: JudgeStatus;
 }
 
 export interface ISubmission {
@@ -14,7 +19,7 @@ export interface ISubmission {
   problemSlug: string;
   language: string;
   code: string;
-  status: "Accepted" | "Wrong Answer" | "Runtime Error";
+  status: JudgeStatus;
   totalTestCases: number;
   passedTestCases: number;
   testCaseResults: ITestCaseResult[];

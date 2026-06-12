@@ -1,0 +1,11 @@
+FROM golang:1.22-bookworm AS base
+
+RUN groupadd -r judge && useradd -r -g judge -m -d /home/judge judge
+
+USER judge
+WORKDIR /home/judge
+
+COPY --chown=judge:judge run.sh /home/judge/run.sh
+RUN chmod +x /home/judge/run.sh
+
+ENTRYPOINT ["/home/judge/run.sh"]

@@ -1,12 +1,16 @@
-import React from "react";
+import { useLocation } from "react-router-dom";
 import ThemeToggle from "../component/ThemeToggle";
+import Navbar from "../component/Navbar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const isLoginPage = location.pathname === "/login";
+
   return (
-    <div className="w-screen min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative overflow-hidden">
+    <div className="w-screen min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative">
       
       {/* Decorative gradient blobs */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-40 dark:opacity-70 mix-blend-multiply dark:mix-blend-normal">
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-40 dark:opacity-70 mix-blend-multiply dark:mix-blend-normal">
         <div 
           className="
             absolute 
@@ -45,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Grid pattern overlay */}
       <div 
         className="
-          absolute 
+          fixed 
           inset-0 
           z-0 
           opacity-[0.015] 
@@ -56,15 +60,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         " 
       />
 
-      {/* Theme Toggle Button */}
-      <div className="absolute top-6 right-6 z-50">
-        <ThemeToggle />
-      </div>
+      {/* Navbar - only on authenticated pages */}
+      {
+        !isLoginPage ? 
+        <Navbar /> : 
+          <div className="fixed top-4 right-4 z-50">
+            <ThemeToggle />
+          </div>
+      }
 
       {/* Main Content */}
-      <main className="relative z-10 min-h-screen w-full flex items-center justify-center p-6">
-        {children}
-      </main>
+      <div className="relative z-10">
+        {isLoginPage ? (
+          <div className="min-h-screen flex items-center justify-center p-6">
+            {children}
+          </div>
+        ) : (
+          <div className="pt-2">
+            {children}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

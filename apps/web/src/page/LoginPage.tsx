@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { loginUser, signupUser } from "../feature/auth/authThunk";
 import { CreateUserDtoSchema, LoginDtoSchema } from "@repo/dto";
@@ -6,6 +7,7 @@ import { z } from "zod";
 
 export default function LoginPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { loading, error: apiError } = useAppSelector((state) => state.auth);
 
   const [isSignup, setIsSignup] = useState(false);
@@ -36,7 +38,7 @@ export default function LoginPage() {
         const parsedData = CreateUserDtoSchema.parse(formData);
         const resultAction = await dispatch(signupUser(parsedData));
         if (signupUser.fulfilled.match(resultAction)) {
-          window.location.href = "/dashboard";
+          navigate("/problems");
         }
       } else {
         const parsedData = LoginDtoSchema.parse({
@@ -45,7 +47,7 @@ export default function LoginPage() {
         });
         const resultAction = await dispatch(loginUser(parsedData));
         if (loginUser.fulfilled.match(resultAction)) {
-          window.location.href = "/dashboard";
+          navigate("/problems");
         }
       }
     } catch (zodError) {

@@ -1060,6 +1060,11 @@
     "@types/http-errors" "*"
     "@types/node" "*"
 
+"@types/trusted-types@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.yarnpkg.com/@types/trusted-types/-/trusted-types-2.0.7.tgz#baccb07a970b91707df3a3e8ba6896c57ead2d11"
+  integrity sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==
+
 "@types/use-sync-external-store@^0.0.6":
   version "0.0.6"
   resolved "https://registry.npmjs.org/@types/use-sync-external-store/-/use-sync-external-store-0.0.6.tgz"
@@ -1810,6 +1815,13 @@ domhandler@^5.0.2, domhandler@^5.0.3:
   integrity sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==
   dependencies:
     domelementtype "^2.3.0"
+
+dompurify@3.2.7:
+  version "3.2.7"
+  resolved "https://registry.yarnpkg.com/dompurify/-/dompurify-3.2.7.tgz#721d63913db5111dd6dfda8d3a748cfd7982d44a"
+  integrity sha512-WhL/YuveyGXJaerVlMYGWhvQswa7myDG17P7Vu65EWC05o8vfeNbvNf4d/BOvH99+ZW+LlQsc1GDKMa1vNK6dw==
+  optionalDependencies:
+    "@types/trusted-types" "^2.0.7"
 
 domutils@^3.0.1, domutils@^3.2.2:
   version "3.2.2"
@@ -3215,6 +3227,11 @@ lucide-react@^1.17.0:
   resolved "https://registry.npmjs.org/lucide-react/-/lucide-react-1.17.0.tgz"
   integrity sha512-9FA9evdox/JQL5PT57fdA1x/yg8T7knJ98+zjTL3UfKza6pflQUUh3XtaQIHKvnsJw1lmsEyHVlt5jchYxOQ5w==
 
+marked@14.0.0:
+  version "14.0.0"
+  resolved "https://registry.yarnpkg.com/marked/-/marked-14.0.0.tgz#79a1477358a59e0660276f8fec76de2c33f35d83"
+  integrity sha512-uIj4+faQ+MgHgwUW1l2PsPglZLOLOT1uErt06dAPtx2kjteLAkbsd/0FiYg/MGS+i7ZKLb7w2WClxHkzOOuryQ==
+
 math-intrinsics@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz"
@@ -3290,6 +3307,14 @@ minimist@^1.2.6:
   version "1.2.8"
   resolved "https://registry.npmjs.org/minimist/-/minimist-1.2.8.tgz"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
+
+monaco-editor@^0.55.1:
+  version "0.55.1"
+  resolved "https://registry.yarnpkg.com/monaco-editor/-/monaco-editor-0.55.1.tgz#e74c6fe5a6bf985b817d2de3eb88d56afc494a1b"
+  integrity sha512-jz4x+TJNFHwHtwuV9vA9rMujcZRb0CEilTEwG2rRSpe/A7Jdkuj8xPKttCgOh+v/lkHy7HsZ64oj+q3xoAFl9A==
+  dependencies:
+    dompurify "3.2.7"
+    marked "14.0.0"
 
 mongodb-connection-string-url@^7.0.0:
   version "7.0.1"

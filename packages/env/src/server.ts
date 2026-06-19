@@ -33,6 +33,7 @@ const serverEnvSchema = z.object({
   JWT_SECRET: z.string().default("dev-secret"),
   JWT_EXPIRY: msString.default("7d"),
   REFRESH_TOKEN_EXPIRY: msString.default("15d"),
+  OPENROUTER_API_KEY: z.string().default(""),
 });
 
 export type ServerEnv = z.infer<

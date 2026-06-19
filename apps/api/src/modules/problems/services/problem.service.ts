@@ -1,6 +1,7 @@
 import * as problemRepo from "../repositories/problem.repository";
 import { IProblem, IProblemFilter } from "../interfaces/problem.interface";
 import { ApiError } from "../../../common/errors/apiError";
+import { HttpStatus } from "../../../common/constants/httpStatus";
 
 export const getProblems = async (filter: IProblemFilter) => {
   return problemRepo.findProblemsWithFilter(filter);
@@ -9,7 +10,7 @@ export const getProblems = async (filter: IProblemFilter) => {
 export const getProblemById = async (id: string) => {
   const problem = await problemRepo.findById(id);
   if (!problem) {
-    throw new ApiError("Problem not found", 404);
+    throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
   return problem;
 };
@@ -17,7 +18,7 @@ export const getProblemById = async (id: string) => {
 export const getProblemBySlug = async (slug: string) => {
   const problem = await problemRepo.findBySlug(slug);
   if (!problem) {
-    throw new ApiError("Problem not found", 404);
+    throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
   return problem;
 };

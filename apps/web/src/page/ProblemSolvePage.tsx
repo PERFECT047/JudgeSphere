@@ -16,6 +16,7 @@ import {
   LogOut,
   GripVertical,
   TestTube,
+  Sparkles,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { logout } from "../feature/auth/authSlice";
@@ -30,6 +31,7 @@ import {
 } from "../feature/submissions/submissionSlice";
 import type { Submission, TestCaseResult } from "../feature/submissions/submissionAPI";
 import { runCustomTestCaseAPI } from "../feature/submissions/submissionAPI";
+import { reviewCodeAPI } from "../feature/ai-review/aiReviewAPI";
 import type * as MonacoEditor from "monaco-editor";
 
 interface MonacoWindow extends Window {
@@ -83,6 +85,11 @@ export default function ProblemSolvePage() {
   const [customExpected, setCustomExpected] = useState("");
   const [customResult, setCustomResult] = useState<TestCaseResult | null>(null);
   const [customLoading, setCustomLoading] = useState(false);
+
+  // AI Review state
+  const [aiReviewLoading, setAiReviewLoading] = useState(false);
+  const [aiReviewResult, setAiReviewResult] = useState<string | null>(null);
+  const [showAiReview, setShowAiReview] = useState(false);
 
   // Split panel state
   const [splitPosition, setSplitPosition] = useState(() => {
@@ -315,6 +322,26 @@ export default function ProblemSolvePage() {
     setShowLanguageDropdown(false);
     // Clear code so new template loads
     setCode("");
+  };
+
+  const handleAiReview = async () => {
+    if (!problem || !code.trim()) return;
+    setAiReviewLoading(true);
+    setAiReviewResult(null);
+    setShowAiReview(true);
+    try {
+      const result = await reviewCodeAPI({
+        code,
+        language: selectedLanguage.id,
+        problemSlug: problem.slug,
+      });
+      setAiReviewResult(result.review);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to get AI review. Please try again.";
+      setAiReviewResult(`**Error:** ${message}`);
+    } finally {
+      setAiReviewLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -723,6 +750,83 @@ export default function ProblemSolvePage() {
         </div>
       )}
 
+      {/* AI Review Panel */}
+      {showAiReview && (
+        <div className="mt-3 bg-white dark:bg-slate-900/80 border border-violet-200 dark:border-violet-800/50 rounded-xl overflow-hidden shadow-md">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-violet-200 dark:border-violet-800/50">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                AI Code Review
+              </span>
+              {aiReviewLoading && (
+                <span className="text-xs text-violet-500 dark:text-violet-400">
+                  Analyzing...
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAiReview(false)}
+              className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="max-h-80 overflow-y-auto p-4">
+            {aiReviewLoading && !aiReviewResult ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full"></div>
+              </div>
+            ) : aiReviewResult ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {aiReviewResult.split("\n").map((line, idx) => {
+                  if (line.startsWith("### ")) {
+                    return (
+                      <h3 key={idx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-2 first:mt-0">
+                        {line.replace("### ", "")}
+                      </h3>
+                    );
+                  }
+                  if (line.startsWith("```")) {
+                    return null;
+                  }
+                  if (line.trim() === "") {
+                    return <div key={idx} className="h-2" />;
+                  }
+                  // Handle bold text
+                  const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                  return (
+                    <p key={idx} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed my-1">
+                      {parts.map((part, pidx) => {
+                        if (part.startsWith("**") && part.endsWith("**")) {
+                          return (
+                            <strong key={pidx} className="font-semibold text-slate-900 dark:text-white">
+                              {part.slice(2, -2)}
+                            </strong>
+                          );
+                        }
+                        // Handle inline code
+                        const codeParts = part.split(/(`[^`]+`)/g);
+                        return codeParts.map((cp, cpidx) => {
+                          if (cp.startsWith("`") && cp.endsWith("`")) {
+                            return (
+                              <code key={`${pidx}-${cpidx}`} className="text-xs bg-slate-100 dark:bg-slate-800 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded font-mono">
+                                {cp.slice(1, -1)}
+                              </code>
+                            );
+                          }
+                          return <span key={`${pidx}-${cpidx}`}>{cp}</span>;
+                        });
+                      })}
+                    </p>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Submission error */}
       {submissionError && (
         <div className="mt-3 text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950/30 p-3 rounded-xl border border-red-200 dark:border-red-900/50">
@@ -814,6 +918,20 @@ export default function ProblemSolvePage() {
               <Send className="w-4 h-4" />
             )}
             Submit
+          </button>
+
+          {/* AI Review Button */}
+          <button
+            onClick={handleAiReview}
+            disabled={aiReviewLoading || !code.trim()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-sm text-white hover:from-violet-700 hover:to-purple-700 active:scale-95 transition-all duration-150 shadow-md disabled:opacity-50"
+          >
+            {aiReviewLoading ? (
+              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            AI Review
           </button>
 
           {/* Save as Template Button */}

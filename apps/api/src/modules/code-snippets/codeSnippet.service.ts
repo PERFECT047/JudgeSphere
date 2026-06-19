@@ -1,4 +1,5 @@
 import { ApiError } from "../../common/errors/apiError";
+import { HttpStatus } from "../../common/constants/httpStatus";
 import * as snippetRepo from "./codeSnippet.repository";
 import type { ICodeSnippetFilter } from "./codeSnippet.interface";
 
@@ -44,7 +45,7 @@ export const upsertTemplate = async (data: { language: string; code: string; isD
 export const deleteTemplate = async (id: string) => {
   const result = await snippetRepo.deleteTemplate(id);
   if (result.deletedCount === 0) {
-    throw new ApiError("Template not found", 404);
+    throw new ApiError("Template not found", HttpStatus.NOT_FOUND);
   }
   return { deleted: true };
 };
@@ -58,7 +59,7 @@ export const getSnippets = async (filter: ICodeSnippetFilter) => {
 export const getSnippetById = async (id: string) => {
   const snippet = await snippetRepo.getSnippetById(id);
   if (!snippet) {
-    throw new ApiError("Snippet not found", 404);
+    throw new ApiError("Snippet not found", HttpStatus.NOT_FOUND);
   }
   return snippet;
 };
@@ -78,7 +79,7 @@ export const createSnippet = async (data: {
   });
   
   if (existing.some((s: any) => s.prefix === data.prefix)) {
-    throw new ApiError(`A snippet with prefix "${data.prefix}" already exists`, 409);
+    throw new ApiError(`A snippet with prefix "${data.prefix}" already exists`, HttpStatus.CONFLICT);
   }
 
   return snippetRepo.createSnippet({
@@ -103,13 +104,13 @@ export const updateSnippet = async (
 ) => {
   const existing = await snippetRepo.getSnippetById(id);
   if (!existing) {
-    throw new ApiError("Snippet not found", 404);
+    throw new ApiError("Snippet not found", HttpStatus.NOT_FOUND);
   }
   if (existing.isBuiltIn) {
-    throw new ApiError("Cannot edit built-in snippets", 403);
+    throw new ApiError("Cannot edit built-in snippets", HttpStatus.FORBIDDEN);
   }
   if (existing.userId !== userId) {
-    throw new ApiError("Not authorized to edit this snippet", 403);
+    throw new ApiError("Not authorized to edit this snippet", HttpStatus.FORBIDDEN);
   }
 
   return snippetRepo.updateSnippet(id, updates);
@@ -118,18 +119,18 @@ export const updateSnippet = async (
 export const deleteSnippet = async (id: string, userId: string) => {
   const existing = await snippetRepo.getSnippetById(id);
   if (!existing) {
-    throw new ApiError("Snippet not found", 404);
+    throw new ApiError("Snippet not found", HttpStatus.NOT_FOUND);
   }
   if (existing.isBuiltIn) {
-    throw new ApiError("Cannot delete built-in snippets", 403);
+    throw new ApiError("Cannot delete built-in snippets", HttpStatus.FORBIDDEN);
   }
   if (existing.userId !== userId) {
-    throw new ApiError("Not authorized to delete this snippet", 403);
+    throw new ApiError("Not authorized to delete this snippet", HttpStatus.FORBIDDEN);
   }
 
   const result = await snippetRepo.deleteSnippet(id);
   if (result.deletedCount === 0) {
-    throw new ApiError("Snippet not found", 404);
+    throw new ApiError("Snippet not found", HttpStatus.NOT_FOUND);
   }
   return { deleted: true };
 };

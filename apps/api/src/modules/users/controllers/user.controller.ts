@@ -3,6 +3,7 @@ import * as userService from "../services/user.service";
 import { parseToMs } from "../../../common/utils/timeConvertor"
 import { CreateUserDtoSchema, LoginDtoSchema, RefreshTokenDtoSchema, UpdateProfileDtoSchema, ChangePasswordDtoSchema } from "@repo/dto"
 import { env } from "@repo/env/server";
+import { HttpStatus } from "../../../common/constants/httpStatus";
 
 
 const setRefreshTokenCookie = (res: Response, refreshToken: string) => {
@@ -36,7 +37,7 @@ export const signup = async (
 
     setRefreshTokenCookie(res, result.refreshToken);
 
-    res.status(201).json({
+    res.status(HttpStatus.CREATED).json({
       user: result.user,
       token: result.token,
     });
@@ -76,7 +77,7 @@ export const refresh = async (
 
     if (!refreshToken) {
       clearRefreshTokenCookie(res);
-      return res.status(401).json({ message: "Refresh token missing" });
+      return res.status(HttpStatus.UNAUTHORIZED).json({ message: "Refresh token missing" });
     }
 
     const result = await userService.refreshTokenService({ refreshToken });

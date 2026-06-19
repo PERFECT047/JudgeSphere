@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as snippetService from "./codeSnippet.service";
+import { HttpStatus } from "../../common/constants/httpStatus";
 import type { ICodeSnippetFilter } from "./codeSnippet.interface";
 
 // ========== TEMPLATES ==========
@@ -20,7 +21,7 @@ export const saveUserTemplate = async (req: Request, res: Response, next: NextFu
     const userId = req.user!.userId;
     const { language, code } = req.body;
     const template = await snippetService.saveUserTemplate(language, code, userId);
-    res.status(201).json(template);
+    res.status(HttpStatus.CREATED).json(template);
   } catch (err) {
     next(err);
   }
@@ -39,7 +40,7 @@ export const upsertTemplate = async (req: Request, res: Response, next: NextFunc
   try {
     const { language, code, isDefault } = req.body;
     const template = await snippetService.upsertTemplate({ language, code, isDefault });
-    res.status(201).json(template);
+    res.status(HttpStatus.CREATED).json(template);
   } catch (err) {
     next(err);
   }
@@ -96,7 +97,7 @@ export const createSnippet = async (req: Request, res: Response, next: NextFunct
       description,
       userId,
     });
-    res.status(201).json(snippet);
+    res.status(HttpStatus.CREATED).json(snippet);
   } catch (err) {
     next(err);
   }

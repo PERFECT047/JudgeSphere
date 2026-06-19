@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as problemService from "../services/problem.service";
+import { HttpStatus } from "../../../common/constants/httpStatus";
 import { IProblemFilter } from "../interfaces/problem.interface";
 
 export const getProblems = async (
@@ -110,10 +111,10 @@ export const importProblems = async (
   try {
     const { problems } = req.body;
     if (!problems || !Array.isArray(problems)) {
-      return res.status(400).json({ message: "problems array is required" });
+      return res.status(HttpStatus.BAD_REQUEST).json({ message: "problems array is required" });
     }
     const result = await problemService.importProblems(problems);
-    res.status(201).json(result);
+    res.status(HttpStatus.CREATED).json(result);
   } catch (err) {
     next(err);
   }

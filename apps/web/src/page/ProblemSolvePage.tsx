@@ -140,6 +140,7 @@ export default function ProblemSolvePage() {
 
   // Fetch submissions when problem loads
   useEffect(() => {
+    dispatch(clearCurrentResult());
     if (slug) {
       dispatch(fetchSubmissions(slug));
     }

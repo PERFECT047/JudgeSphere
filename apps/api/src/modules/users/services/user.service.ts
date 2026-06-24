@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
-import { findByEmail, findById, createUser, updateUser, updatePassword } from "../repository/user.repository";
+import { findByEmail, findById, createUser, updateUser, updatePassword } from "../repository/user.repository.js";
 import { env } from "@repo/env/server";
-import { ApiError } from "../../../common/errors/apiError";
-import { HttpStatus } from "../../../common/constants/httpStatus";
+import { ApiError } from "../../../common/errors/apiError.js";
+import { HttpStatus } from "../../../common/constants/httpStatus.js";
 import type { CreateUserDto, LoginDto, AuthResponseDto, RefreshTokenDto, RefreshTokenResponseDto, UpdateProfileDto, ChangePasswordDto } from "@repo/dto";
 
 
@@ -181,7 +181,7 @@ export const changePassword = async (userId: string, data: ChangePasswordDto) =>
 };
 
 export const getDashboardStats = async (userId: string) => {
-  const { db } = await import("../../../config/database/mongodb");
+  const { db } = await import("../../../config/database/mongodb.js");
   const submissions = db.collection("submissions");
 
   const totalSubmissions = await submissions.countDocuments({ userId });

@@ -1,16 +1,16 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import cookieParser from "cookie-parser";
 
-import { logger } from "./config/logger";
-import userRoutes from "./modules/users/routes/user.routes";
-import problemRoutes from "./modules/problems/routes/problem.routes";
-import submissionRoutes from "./modules/submissions/routes/submission.routes";
-import codeSnippetRoutes from "./modules/code-snippets/codeSnippet.routes";
-import aiReviewRoutes from "./modules/ai-review/aiReview.routes";
-import { errorHandler } from "./common/middleware/errorHandler";
+import { logger } from "./config/logger/index.js";
+import userRoutes from "./modules/users/routes/user.routes.js";
+import problemRoutes from "./modules/problems/routes/problem.routes.js";
+import submissionRoutes from "./modules/submissions/routes/submission.routes.js";
+import codeSnippetRoutes from "./modules/code-snippets/codeSnippet.routes.js";
+import aiReviewRoutes from "./modules/ai-review/aiReview.routes.js";
+import { errorHandler } from "./common/middleware/errorHandler.js";
 
 const app = express();
 

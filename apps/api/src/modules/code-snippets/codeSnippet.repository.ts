@@ -1,6 +1,6 @@
-import { db } from "../../config/database/mongodb";
+import { db } from "../../config/database/mongodb.js";
 import { ObjectId } from "mongodb";
-import type { ICodeTemplate, ICodeSnippet, ICodeSnippetFilter } from "./codeSnippet.interface";
+import type { ICodeTemplate, ICodeSnippet, ICodeSnippetFilter } from "./codeSnippet.interface.js";
 
 // Collections
 const templates = db.collection<ICodeTemplate>("code_templates");

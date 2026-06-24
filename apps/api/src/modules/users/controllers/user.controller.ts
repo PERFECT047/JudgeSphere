@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import * as userService from "../services/user.service";
-import { parseToMs } from "../../../common/utils/timeConvertor"
+import * as userService from "../services/user.service.js";
+import { parseToMs } from "../../../common/utils/timeConvertor.js"
 import { CreateUserDtoSchema, LoginDtoSchema, RefreshTokenDtoSchema, UpdateProfileDtoSchema, ChangePasswordDtoSchema } from "@repo/dto"
 import { env } from "@repo/env/server";
-import { HttpStatus } from "../../../common/constants/httpStatus";
+import { HttpStatus } from "../../../common/constants/httpStatus.js";
 
 
 const setRefreshTokenCookie = (res: Response, refreshToken: string) => {

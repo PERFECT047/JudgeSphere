@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import * as snippetService from "./codeSnippet.service";
-import { HttpStatus } from "../../common/constants/httpStatus";
-import type { ICodeSnippetFilter } from "./codeSnippet.interface";
+import * as snippetService from "./codeSnippet.service.js";
+import { HttpStatus } from "../../common/constants/httpStatus.js";
+import type { ICodeSnippetFilter } from "./codeSnippet.interface.js";
 
 // ========== TEMPLATES ==========
 

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import * as problemService from "../services/problem.service";
-import { HttpStatus } from "../../../common/constants/httpStatus";
-import { IProblemFilter } from "../interfaces/problem.interface";
+import * as problemService from "../services/problem.service.js";
+import { HttpStatus } from "../../../common/constants/httpStatus.js";
+import { IProblemFilter } from "../interfaces/problem.interface.js";
 
 export const getProblems = async (
   req: Request,

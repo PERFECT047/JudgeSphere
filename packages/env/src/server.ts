@@ -1,11 +1,17 @@
 import { z } from "zod";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 
-import { StringValue } from "ms";
+import type { StringValue } from "ms";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
-dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+dotenv.config({
+  path: path.resolve(__dirname, "../../../.env"),
+});
 
 const msString = z.string().refine((val): val is StringValue => true);
 

@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
 
@@ -11,11 +10,7 @@
     "declaration": true,
     "declarationMap": true,
 
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-
-    "types": ["node", "vite/client"]
+    "strict": true
   },
 
   "include": ["src"]

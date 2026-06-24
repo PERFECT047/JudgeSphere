@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { RunCodeDtoSchema, SubmitCodeDtoSchema } from "@repo/dto";
-import * as submissionService from "../services/submission.service";
+import * as submissionService from "../services/submission.service.js";
 
 export const run = async (req: Request, res: Response, next: NextFunction) => {
   try {

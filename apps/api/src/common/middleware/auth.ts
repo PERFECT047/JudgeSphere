@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "@repo/env/server";
-import { HttpStatus } from "../constants/httpStatus";
+import { HttpStatus } from "../constants/httpStatus.js";
 
 export interface AuthPayload {
   userId: string;

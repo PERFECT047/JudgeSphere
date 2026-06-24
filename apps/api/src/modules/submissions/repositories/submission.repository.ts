@@ -1,5 +1,5 @@
-import { db } from "../../../config/database/mongodb";
-import { ISubmission } from "../interfaces/submission.interface";
+import { db } from "../../../config/database/mongodb.js";
+import { ISubmission } from "../interfaces/submission.interface.js";
 
 const submissions = db.collection<ISubmission>("submissions");
 

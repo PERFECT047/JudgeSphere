@@ -1,5 +1,5 @@
-import { db } from "../config/database/mongodb";
-import type { ICodeTemplate, ICodeSnippet } from "../modules/code-snippets/codeSnippet.interface";
+import { db } from "../config/database/mongodb.js";
+import type { ICodeTemplate, ICodeSnippet } from "../modules/code-snippets/codeSnippet.interface.js";
 
 /**
  * Seed script for populating built-in code snippets and default templates.

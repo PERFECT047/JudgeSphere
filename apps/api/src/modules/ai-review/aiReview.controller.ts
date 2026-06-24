@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { reviewCode } from "./aiReview.service";
-import { ApiError } from "../../common/errors/apiError";
-import { HttpStatus } from "../../common/constants/httpStatus";
-import { findBySlug } from "../problems/repositories/problem.repository";
+import { reviewCode } from "./aiReview.service.js";
+import { ApiError } from "../../common/errors/apiError.js";
+import { HttpStatus } from "../../common/constants/httpStatus.js";
+import { findBySlug } from "../problems/repositories/problem.repository.js";
 
 interface ReviewRequestBody {
   code: string;

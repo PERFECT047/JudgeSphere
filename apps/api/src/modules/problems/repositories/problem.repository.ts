@@ -1,6 +1,6 @@
-import { db } from "../../../config/database/mongodb";
+import { db } from "../../../config/database/mongodb.js";
 import { ObjectId, Filter, Document } from "mongodb";
-import { IProblem, IProblemFilter } from "../interfaces/problem.interface";
+import { IProblem, IProblemFilter } from "../interfaces/problem.interface.js";
 
 const problems = db.collection<IProblem>("problems");
 

@@ -2,7 +2,7 @@ import { execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { LANGUAGE_EXTENSIONS, LANGUAGE_DOCKER_IMAGES } from "./judge.interface";
+import { LANGUAGE_EXTENSIONS, LANGUAGE_DOCKER_IMAGES } from "./judge.interface.js";
 
 const SANDBOX_BASE_DIR = path.join(os.tmpdir(), "judgesphere-sandbox");
 

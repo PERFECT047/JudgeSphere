@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import type { JudgeStatus } from "../../judge/judge.interface";
+import type { JudgeStatus } from "../../judge/judge.interface.js";
 
 export interface ITestCaseResult {
   passed: boolean;

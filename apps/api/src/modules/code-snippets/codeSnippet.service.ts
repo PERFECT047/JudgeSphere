@@ -1,7 +1,7 @@
-import { ApiError } from "../../common/errors/apiError";
-import { HttpStatus } from "../../common/constants/httpStatus";
-import * as snippetRepo from "./codeSnippet.repository";
-import type { ICodeSnippetFilter } from "./codeSnippet.interface";
+import { ApiError } from "../../common/errors/apiError.js";
+import { HttpStatus } from "../../common/constants/httpStatus.js";
+import * as snippetRepo from "./codeSnippet.repository.js";
+import type { ICodeSnippetFilter } from "./codeSnippet.interface.js";
 
 // ========== TEMPLATES ==========
 

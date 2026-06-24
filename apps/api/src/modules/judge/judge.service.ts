@@ -3,9 +3,9 @@ import {
   type JudgeResult,
   type JudgeTestCaseResult,
   type JudgeStatus,
-} from "./judge.interface";
-import { runCodeInContainer } from "./docker.service";
-import { compareOutput } from "./output-comparator";
+} from "./judge.interface.js";
+import { runCodeInContainer } from "./docker.service.js";
+import { compareOutput } from "./output-comparator.js";
 
 /**
  * Execute code against test cases using Docker sandbox.

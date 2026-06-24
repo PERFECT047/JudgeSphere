@@ -1,11 +1,11 @@
-import { db } from "../../../config/database/mongodb";
-import { ApiError } from "../../../common/errors/apiError";
-import { HttpStatus } from "../../../common/constants/httpStatus";
+import { db } from "../../../config/database/mongodb.js";
+import { ApiError } from "../../../common/errors/apiError.js";
+import { HttpStatus } from "../../../common/constants/httpStatus.js";
 import type { RunCodeDto, SubmitCodeDto } from "@repo/dto";
-import { createSubmission, getSubmissionsByUserAndProblem } from "../repositories/submission.repository";
-import type { ITestCaseResult } from "../interfaces/submission.interface";
-import { executeCode, executeCodeRun } from "../../judge/judge.service";
-import type { JudgeTestCase } from "../../judge/judge.interface";
+import { createSubmission, getSubmissionsByUserAndProblem } from "../repositories/submission.repository.js";
+import type { ITestCaseResult } from "../interfaces/submission.interface.js";
+import { executeCode, executeCodeRun } from "../../judge/judge.service.js";
+import type { JudgeTestCase } from "../../judge/judge.interface.js";
 
 const problems = db.collection("problems");
 

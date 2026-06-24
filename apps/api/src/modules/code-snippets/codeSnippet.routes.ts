@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "../../common/middleware/auth";
-import * as snippetController from "./codeSnippet.controller";
+import { requireAuth } from "../../common/middleware/auth.js";
+import * as snippetController from "./codeSnippet.controller.js";
 
 const router = Router();
 

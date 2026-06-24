@@ -195,7 +195,7 @@ export const getDashboardStats = async (userId: string) => {
     .find({ userId })
     .sort({ createdAt: -1 })
     .limit(5)
-    .project({ status: 1, language: 1, problemSlug: 1, createdAt: 1, passedTestCases: 1, totalTestCases: 1 })
+    .project({ status: 1, language: 1, problemSlug: 1, createdAt: 1, passedTestCases: 1, totalTestCases: 1, code: 1 })
     .toArray();
 
   return {

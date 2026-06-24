@@ -9,29 +9,17 @@ export const getProblems = async (
   next: NextFunction
 ) => {
   try {
-    const {
-      search,
-      difficulty,
-      tags,
-      topics,
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { tags, topics, page, limit } = req.query;
+    const userId = req.user!.userId;
 
     const filter: IProblemFilter = {
-      search: search as string,
-      difficulty: difficulty ? (difficulty as string).split(",") : undefined,
       tags: tags ? (tags as string).split(",") : undefined,
       topics: topics ? (topics as string).split(",") : undefined,
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 20,
-      sortBy: sortBy as string,
-      sortOrder: sortOrder as "asc" | "desc",
     };
 
-    const result = await problemService.getProblems(filter);
+    const result = await problemService.getProblems(userId, filter);
     res.json(result);
   } catch (err) {
     next(err);

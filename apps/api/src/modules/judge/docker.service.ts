@@ -2,7 +2,12 @@ import { execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { fileURLToPath } from "url";
 import { LANGUAGE_EXTENSIONS, LANGUAGE_DOCKER_IMAGES } from "./judge.interface.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const RUN_SH_PATH = path.join(__dirname, "..", "..", "..", "docker", "run.sh");
 
 const SANDBOX_BASE_DIR = path.join(os.tmpdir(), "judgesphere-sandbox");
 
@@ -49,6 +54,11 @@ export function runCodeInContainer(
     // Write the source code to a file
     fs.writeFileSync(sourceFilePath, code, "utf-8");
 
+    // Copy run.sh to sessionDir and make it executable
+    const targetRunShPath = path.join(sessionDir, "run.sh");
+    fs.copyFileSync(RUN_SH_PATH, targetRunShPath);
+    fs.chmodSync(targetRunShPath, 0o755);
+
     // Write the input to a file (for piping)
     const inputFilePath = path.join(sessionDir, "input.txt");
     fs.writeFileSync(inputFilePath, input, "utf-8");
@@ -60,6 +70,7 @@ export function runCodeInContainer(
       "--rm", // Remove container after execution
       "--network", "none", // No network access
       "--read-only", // Read-only root filesystem
+      "--tmpfs", "/tmp:exec", // Mount a writeable tmpfs at /tmp for compiles/runs
       "--memory", "256m", // Memory limit
       "--memory-swap", "256m", // No swap
       "--cpus", "0.5", // CPU limit
@@ -67,7 +78,7 @@ export function runCodeInContainer(
       "--cap-drop", "ALL", // Drop all capabilities
       "--security-opt", "no-new-privileges:true",
       "--security-opt", "seccomp=unconfined",
-      "-v", `${sessionDir}:/home/judge:ro`, // Mount code read-only
+      "-v", `${sessionDir}:/home/judge:ro`, // Mount code and run.sh read-only
       "-i", // Interactive mode for stdin
       imageName,
       sourceFileName,

@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 
 import App from "./App";
 import "./index.css";
+import "katex/dist/katex.min.css";
 import { Toaster } from "react-hot-toast";
 
 import { store } from "./app/store";

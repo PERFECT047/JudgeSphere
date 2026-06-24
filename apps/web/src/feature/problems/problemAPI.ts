@@ -1,11 +1,20 @@
 import axios from "../../service/axios";
 
-export interface Problem {
+export interface ProblemSummary {
   _id: string;
   problemNumber: number;
   title: string;
   slug: string;
-  difficulty: "Easy" | "Medium" | "Hard";
+  tags: string[];
+  topics: string[];
+  state?: "Solved" | "Attempted" | null;
+}
+
+export interface ProblemDetail {
+  _id: string;
+  problemNumber: number;
+  title: string;
+  slug: string;
   description: string;
   constraints: string[];
   examples: {
@@ -13,31 +22,19 @@ export interface Problem {
     output: string;
     explanation?: string;
   }[];
-  testCases: {
-    input: string;
-    expectedOutput: string;
-    explanation?: string;
-  }[];
   tags: string[];
   topics: string[];
-  leetcodeNumber?: number;
-  note?: string;
-  isPremium: boolean;
 }
 
 export interface ProblemFilter {
-  search?: string;
-  difficulty?: string[];
   tags?: string[];
   topics?: string[];
   page?: number;
   limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
 }
 
 export interface PaginatedResponse {
-  problems: Problem[];
+  problems: ProblemSummary[];
   pagination: {
     total: number;
     page: number;
@@ -49,7 +46,6 @@ export interface PaginatedResponse {
 }
 
 export interface ProblemStats {
-  byDifficulty: { _id: string; count: number }[];
   byTopic: { _id: string; count: number }[];
   byTag: { _id: string; count: number }[];
   total: number;
@@ -58,26 +54,22 @@ export interface ProblemStats {
 export const getProblems = async (filter: ProblemFilter): Promise<PaginatedResponse> => {
   const params = new URLSearchParams();
   
-  if (filter.search) params.append("search", filter.search);
-  if (filter.difficulty?.length) params.append("difficulty", filter.difficulty.join(","));
   if (filter.tags?.length) params.append("tags", filter.tags.join(","));
   if (filter.topics?.length) params.append("topics", filter.topics.join(","));
   if (filter.page) params.append("page", filter.page.toString());
   if (filter.limit) params.append("limit", filter.limit.toString());
-  if (filter.sortBy) params.append("sortBy", filter.sortBy);
-  if (filter.sortOrder) params.append("sortOrder", filter.sortOrder);
 
   const response = await axios.get<PaginatedResponse>(`/problems?${params.toString()}`);
   return response.data;
 };
 
-export const getProblemById = async (id: string): Promise<Problem> => {
-  const response = await axios.get<Problem>(`/problems/${id}`);
+export const getProblemById = async (id: string): Promise<ProblemDetail> => {
+  const response = await axios.get<ProblemDetail>(`/problems/${id}`);
   return response.data;
 };
 
-export const getProblemBySlug = async (slug: string): Promise<Problem> => {
-  const response = await axios.get<Problem>(`/problems/slug/${slug}`);
+export const getProblemBySlug = async (slug: string): Promise<ProblemDetail> => {
+  const response = await axios.get<ProblemDetail>(`/problems/slug/${slug}`);
   return response.data;
 };
 

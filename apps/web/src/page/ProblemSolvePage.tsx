@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import {
   ArrowLeft,
   Play,
@@ -13,16 +16,15 @@ import {
   FileText,
   History,
   Code,
-  LogOut,
   GripVertical,
   TestTube,
   Sparkles,
+  RotateCcw,
+  Lightbulb,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { logout } from "../feature/auth/authSlice";
-import { logoutAPI } from "../feature/auth/authAPI";
-import { getProblemBySlug, type Problem } from "../feature/problems/problemAPI";
-import { getTemplateByLanguage, getSnippetsForLanguage, saveUserTemplate, type CodeSnippet } from "../feature/snippets/snippetsAPI";
+import { getProblemBySlug, type ProblemDetail } from "../feature/problems/problemAPI";
+import { getTemplateByLanguage, getSnippetsForLanguage, type CodeSnippet } from "../feature/snippets/snippetsAPI";
 import {
   runCode,
   submitCode,
@@ -31,7 +33,7 @@ import {
 } from "../feature/submissions/submissionSlice";
 import type { Submission, TestCaseResult } from "../feature/submissions/submissionAPI";
 import { runCustomTestCaseAPI } from "../feature/submissions/submissionAPI";
-import { reviewCodeAPI } from "../feature/ai-review/aiReviewAPI";
+import { reviewCodeAPI, generateHintAPI } from "../feature/ai-review/aiReviewAPI";
 import type * as MonacoEditor from "monaco-editor";
 
 interface MonacoWindow extends Window {
@@ -53,12 +55,6 @@ const LANGUAGES = [
   { id: "c", label: "C", monacoId: "c", extension: "c" },
 ];
 
-const DIFFICULTY_COLORS = {
-  Easy: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", border: "border-green-300 dark:border-green-700" },
-  Medium: { bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-400", border: "border-yellow-300 dark:border-yellow-700" },
-  Hard: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", border: "border-red-300 dark:border-red-700" },
-};
-
 const SPLIT_STORAGE_KEY = "problemSplitPosition";
 const RESPONSIVE_BREAKPOINT = 1024;
 
@@ -71,12 +67,19 @@ export default function ProblemSolvePage() {
   const isDragging = useRef(false);
 
   // Problem state
-  const [problem, setProblem] = useState<Problem | null>(null);
+  const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Editor state
-  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    const saved = localStorage.getItem("last_used_language_id");
+    return LANGUAGES.find((l) => l.id === saved) || LANGUAGES[0];
+  });
   const [code, setCode] = useState("");
+
+  // AI Hints state
+  const [aiHints, setAiHints] = useState<string[]>([]);
+  const [aiHintLoading, setAiHintLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"description" | "submissions" | "testcases">("description");
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
@@ -135,12 +138,40 @@ export default function ProblemSolvePage() {
     fetchProblem();
   }, [slug]);
 
-  // Fetch template for selected language
+  // Fetch submissions when problem loads
   useEffect(() => {
-    const fetchTemplate = async () => {
+    if (slug) {
+      dispatch(fetchSubmissions(slug));
+    }
+  }, [slug, dispatch]);
+
+  // Load/Reset AI Hints when slug changes
+  useEffect(() => {
+    if (slug) {
+      const saved = localStorage.getItem(`ai_hints_${slug}`);
+      setAiHints(saved ? JSON.parse(saved) : []);
+    } else {
+      setAiHints([]);
+    }
+  }, [slug]);
+
+  // Fetch template or load saved code for selected language
+  useEffect(() => {
+    const fetchTemplateOrLoadSaved = async () => {
+      // Check localStorage first
+      const savedCode = slug ? localStorage.getItem(`editor_code_${slug}_${selectedLanguage.id}`) : null;
+      if (savedCode !== null) {
+        setCode(savedCode);
+        return;
+      }
+
+      // Otherwise fetch the template
       try {
         const templateData = await getTemplateByLanguage(selectedLanguage.id);
         setCode(templateData.code);
+        if (slug) {
+          localStorage.setItem(`editor_code_${slug}_${selectedLanguage.id}`, templateData.code);
+        }
       } catch {
         // Fallback: set empty code
         setCode("");
@@ -149,17 +180,9 @@ export default function ProblemSolvePage() {
 
     // Only fetch template if problem is loaded (don't override on first load)
     if (problem) {
-      fetchTemplate();
+      fetchTemplateOrLoadSaved();
     }
-  }, [selectedLanguage, problem]);
-
-
-  // Fetch submissions when tab changes to submissions
-  useEffect(() => {
-    if (activeTab === "submissions" && slug) {
-      dispatch(fetchSubmissions(slug));
-    }
-  }, [activeTab, slug, dispatch]);
+  }, [selectedLanguage, problem, slug]);
 
   // Clear current result when switching to submissions tab
   useEffect(() => {
@@ -221,79 +244,68 @@ export default function ProblemSolvePage() {
 
   // Register Monaco completion provider for snippets
   const handleEditorDidMount = (
-  editor: Parameters<NonNullable<React.ComponentProps<typeof Editor>["onMount"]>>[0]
-) => {
-  editorRef.current = editor;
-  editor.focus();
+    editor: Parameters<NonNullable<React.ComponentProps<typeof Editor>["onMount"]>>[0]
+  ) => {
+    editorRef.current = editor;
+    editor.focus();
 
-  const monacoWindow = window as unknown as MonacoWindow;
+    const monacoWindow = window as unknown as MonacoWindow;
 
-  if (typeof monacoWindow.monaco !== "undefined") {
-    const monaco = monacoWindow.monaco;
-    const typedEditor = editor as EditorWithSnippetProvider;
+    if (typeof monacoWindow.monaco !== "undefined") {
+      const monaco = monacoWindow.monaco;
+      const typedEditor = editor as EditorWithSnippetProvider;
 
-    if (typedEditor.__snippetProvider) {
-      typedEditor.__snippetProvider.dispose();
+      if (typedEditor.__snippetProvider) {
+        typedEditor.__snippetProvider.dispose();
+      }
+
+      typedEditor.__snippetProvider = monaco.languages.registerCompletionItemProvider("*", {
+        provideCompletionItems: (model, position) => {
+          if (model !== editor.getModel()) {
+            return { suggestions: [] };
+          }
+
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+
+          const snippetSuggestions = snippets.map((snippet) => ({
+            label: {
+              label: snippet.prefix,
+              description: snippet.description,
+            },
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            detail: snippet.isBuiltIn ? "[Snippet]" : "[Custom]",
+            insertText: snippet.body,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range,
+            documentation: {
+              value: `**${snippet.prefix}**\n\n${snippet.description || ""}\n\n\`\`\`\n${snippet.body}\n\`\`\``,
+            },
+            sortText: `0_${snippet.prefix}`,
+          }));
+
+          return { suggestions: snippetSuggestions };
+        },
+        triggerCharacters: [".", " "],
+      });
     }
-
-    typedEditor.__snippetProvider = monaco.languages.registerCompletionItemProvider("*", {
-      provideCompletionItems: (model, position) => {
-        if (model !== editor.getModel()) {
-          return { suggestions: [] };
-        }
-
-        const word = model.getWordUntilPosition(position);
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
-
-        const snippetSuggestions = snippets.map((snippet) => ({
-          label: {
-            label: snippet.prefix,
-            description: snippet.description,
-          },
-          kind: monaco.languages.CompletionItemKind.Snippet,
-          detail: snippet.isBuiltIn ? "[Snippet]" : "[Custom]",
-          insertText: snippet.body,
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          range,
-          documentation: {
-            value: `**${snippet.prefix}**\n\n${snippet.description || ""}\n\n\`\`\`\n${snippet.body}\n\`\`\``,
-          },
-          sortText: `0_${snippet.prefix}`,
-        }));
-
-        return { suggestions: snippetSuggestions };
-      },
-      triggerCharacters: [".", " "],
-    });
-  }
-};
+  };
 
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value);
+      if (slug) {
+        localStorage.setItem(`editor_code_${slug}_${selectedLanguage.id}`, value);
+      }
     }
   };
 
-  const [savingTemplate, setSavingTemplate] = useState(false);
-  const [templateSaved, setTemplateSaved] = useState(false);
 
-  const handleSaveAsTemplate = async () => {
-    setSavingTemplate(true);
-    try {
-      await saveUserTemplate({ language: selectedLanguage.id, code });
-      setTemplateSaved(true);
-      setTimeout(() => setTemplateSaved(false), 2000);
-    } catch (err) {
-      console.error("Failed to save template:", err);
-    } finally {
-      setSavingTemplate(false);
-    }
-  };
 
   const handleRun = async () => {
     if (!problem) return;
@@ -317,11 +329,44 @@ export default function ProblemSolvePage() {
     );
   };
 
+  const handleResetToTemplate = async () => {
+    if (window.confirm("Are you sure you want to reset the editor to the default template for this language? Your current edits will be lost.")) {
+      try {
+        const templateData = await getTemplateByLanguage(selectedLanguage.id);
+        setCode(templateData.code);
+        if (slug) {
+          localStorage.setItem(`editor_code_${slug}_${selectedLanguage.id}`, templateData.code);
+        }
+      } catch (err) {
+        console.error("Failed to reset template:", err);
+      }
+    }
+  };
+
   const handleLanguageChange = (lang: (typeof LANGUAGES)[0]) => {
     setSelectedLanguage(lang);
     setShowLanguageDropdown(false);
-    // Clear code so new template loads
-    setCode("");
+    localStorage.setItem("last_used_language_id", lang.id);
+  };
+
+  const handleAiHint = async () => {
+    if (!problem || !code.trim()) return;
+    setAiHintLoading(true);
+    try {
+      const result = await generateHintAPI({
+        code,
+        language: selectedLanguage.id,
+        problemSlug: problem.slug,
+        previousHints: aiHints,
+      });
+      const updatedHints = [...aiHints, result.hint];
+      setAiHints(updatedHints);
+      localStorage.setItem(`ai_hints_${problem.slug}`, JSON.stringify(updatedHints));
+    } catch (err) {
+      console.error("Failed to generate hint:", err);
+    } finally {
+      setAiHintLoading(false);
+    }
   };
 
   const handleAiReview = async () => {
@@ -341,17 +386,6 @@ export default function ProblemSolvePage() {
       setAiReviewResult(`**Error:** ${message}`);
     } finally {
       setAiReviewLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logoutAPI();
-    } catch (error) {
-      console.error("Logout API error:", error);
-    } finally {
-      dispatch(logout());
-      window.location.href = "/login";
     }
   };
 
@@ -383,8 +417,6 @@ export default function ProblemSolvePage() {
     );
   }
 
-  const colors = DIFFICULTY_COLORS[problem.difficulty];
-
   // Left panel content (problem description / submissions)
   const leftPanelContent = (
     <div className="flex flex-col h-full">
@@ -392,33 +424,30 @@ export default function ProblemSolvePage() {
       <div className="flex items-center gap-4 mb-4 border-b border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setActiveTab("description")}
-          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${
-            activeTab === "description"
-              ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
-              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
+          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${activeTab === "description"
+            ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            }`}
         >
           <FileText className="w-4 h-4" />
           Description
         </button>
         <button
           onClick={() => setActiveTab("submissions")}
-          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${
-            activeTab === "submissions"
-              ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
-              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
+          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${activeTab === "submissions"
+            ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            }`}
         >
           <History className="w-4 h-4" />
           Submissions
         </button>
         <button
           onClick={() => setActiveTab("testcases")}
-          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${
-            activeTab === "testcases"
-              ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
-              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
+          className={`flex items-center gap-1.5 text-sm font-medium pb-3 transition-colors ${activeTab === "testcases"
+            ? "text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            }`}
         >
           <TestTube className="w-4 h-4" />
           Testcases
@@ -431,68 +460,220 @@ export default function ProblemSolvePage() {
           <div className="space-y-6">
             {/* Description */}
             <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {problem.description}
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {problem.description}
+              </ReactMarkdown>
             </div>
 
             {/* Examples */}
             {problem.examples.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Examples:</h3>
-                {problem.examples.map((ex, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-2"
-                  >
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Example {idx + 1}:
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">Input: </span>
-                      <code className="text-green-700 dark:text-green-400 font-mono text-xs bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
-                        {ex.input}
-                      </code>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">Output: </span>
-                      <code className="text-blue-700 dark:text-blue-400 font-mono text-xs bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
-                        {ex.output}
-                      </code>
-                    </div>
-                    {ex.explanation && (
-                      <div className="text-sm">
-                        <span className="text-slate-500 dark:text-slate-400">Explanation: </span>
-                        <span className="text-slate-600 dark:text-slate-300">{ex.explanation}</span>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Examples
+                </h3>
+
+                {problem.examples.map(
+                  (
+                    ex: {
+                      input: string;
+                      output: string;
+                      explanation?: string;
+                    },
+                    idx: number
+                  ) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4"
+                    >
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        Example {idx + 1}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Input */}
+                      <div className="text-sm">
+                        <div className="text-slate-500 dark:text-slate-400">Input: </div>
+
+                        <pre className="text-green-700 dark:text-green-400 font-mono text-xs bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
+                          <code>{ex.input}</code>
+                        </pre>
+                      </div>
+
+                      {/* Output */}
+                      <div className="text-sm">
+                        <div className="text-slate-500 dark:text-slate-400">Output: </div>
+
+                        <pre className="text-blue-700 dark:text-blue-400 font-mono text-xs bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
+                          <code>{ex.output}</code>
+                        </pre>
+                      </div>
+
+                      {/* Explanation */}
+                      {ex.explanation && (
+                        <div>
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Explanation
+                          </div>
+
+                          <div className="prose dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkMath]}
+                              rehypePlugins={[rehypeKatex]}
+                            >
+                              {ex.explanation}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
               </div>
             )}
 
             {/* Constraints */}
             {problem.constraints.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Constraints:</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  {problem.constraints.map((c, idx) => (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Constraints
+                </h3>
+
+                <ul className="space-y-2">
+                  {problem.constraints.map((constraint, idx) => (
                     <li
                       key={idx}
-                      className="text-sm text-slate-600 dark:text-slate-400 font-mono"
+                      className="text-sm text-slate-600 dark:text-slate-400"
                     >
-                      {c}
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {constraint}
+                      </ReactMarkdown>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {/* Note */}
-            {problem.note && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <div className="text-xs text-yellow-700 dark:text-yellow-400 font-medium mb-1">
-                  Note:
+            {/* Tags */}
+            {problem.tags && problem.tags.length > 0 && (
+              <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Tags
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {problem.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-900/50"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
-                <div className="text-sm text-slate-600 dark:text-slate-300">{problem.note}</div>
+              </div>
+            )}
+
+            {/* AI Review Panel */}
+            {showAiReview && (
+              <div className="mt-3 bg-white dark:bg-slate-900/80 border border-violet-200 dark:border-violet-800/50 rounded-xl overflow-hidden shadow-md">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-violet-200 dark:border-violet-800/50">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                      AI Code Review
+                    </span>
+                    {aiReviewLoading && (
+                      <span className="text-xs text-violet-500 dark:text-violet-400">
+                        Analyzing...
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowAiReview(false)}
+                    className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="max-h-80 overflow-y-auto p-4">
+                  {aiReviewLoading && !aiReviewResult ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full"></div>
+                    </div>
+                  ) : aiReviewResult ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      {aiReviewResult.split("\n").map((line, idx) => {
+                        if (line.startsWith("### ")) {
+                          return (
+                            <h3 key={idx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-2 first:mt-0">
+                              {line.replace("### ", "")}
+                            </h3>
+                          );
+                        }
+                        if (line.startsWith("```")) {
+                          return null;
+                        }
+                        if (line.trim() === "") {
+                          return <div key={idx} className="h-2" />;
+                        }
+                        // Handle bold text
+                        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                        return (
+                          <p key={idx} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed my-1">
+                            {parts.map((part, pidx) => {
+                              if (part.startsWith("**") && part.endsWith("**")) {
+                                return (
+                                  <strong key={pidx} className="font-semibold text-slate-900 dark:text-white">
+                                    {part.slice(2, -2)}
+                                  </strong>
+                                );
+                              }
+                              // Handle inline code
+                              const codeParts = part.split(/(`[^`]+`)/g);
+                              return codeParts.map((cp, cpidx) => {
+                                if (cp.startsWith("`") && cp.endsWith("`")) {
+                                  return (
+                                    <code key={`${pidx}-${cpidx}`} className="text-xs bg-slate-100 dark:bg-slate-800 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded font-mono">
+                                      {cp.slice(1, -1)}
+                                    </code>
+                                  );
+                                }
+                                return <span key={`${pidx}-${cpidx}`}>{cp}</span>;
+                              });
+                            })}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* AI Hints Section */}
+            {aiHints.length > 0 && (
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  AI Hints
+                </h3>
+                <div className="space-y-2">
+                  {aiHints.map((hint, idx) => (
+                    <div
+                      key={idx}
+                      className="text-sm text-amber-800 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-100 dark:border-amber-900/50 rounded-xl p-3"
+                    >
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-500 mb-1">
+                        Hint {idx + 1}
+                      </div>
+                      <div>{hint}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -502,7 +683,7 @@ export default function ProblemSolvePage() {
             <div className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Run your code against custom test cases. Expected output is optional.
             </div>
-            
+
             {/* Custom Input */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
@@ -565,22 +746,20 @@ export default function ProblemSolvePage() {
 
             {/* Custom Test Result */}
             {customResult && (
-              <div className={`border rounded-xl overflow-hidden ${
-                customResult.passed
-                  ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-900/10"
-                  : "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10"
-              }`}>
+              <div className={`border rounded-xl overflow-hidden ${customResult.passed
+                ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-900/10"
+                : "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10"
+                }`}>
                 <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
                   {customResult.passed ? (
                     <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                   ) : (
                     <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
                   )}
-                  <span className={`text-sm font-semibold ${
-                    customResult.passed
-                      ? "text-green-700 dark:text-green-400"
-                      : "text-red-700 dark:text-red-400"
-                  }`}>
+                  <span className={`text-sm font-semibold ${customResult.passed
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-red-700 dark:text-red-400"
+                    }`}>
                     {customResult.passed ? "Passed" : "Failed"}
                   </span>
                   {customResult.runtime && (
@@ -605,11 +784,10 @@ export default function ProblemSolvePage() {
                   </div>
                   <div>
                     <span className="text-slate-500 dark:text-slate-400 font-medium">Your output: </span>
-                    <code className={`font-mono text-xs px-1.5 py-0.5 rounded ${
-                      customResult.passed
-                        ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
-                        : "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
-                    }`}>
+                    <code className={`font-mono text-xs px-1.5 py-0.5 rounded ${customResult.passed
+                      ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                      : "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                      }`}>
                       {customResult.actual}
                     </code>
                   </div>
@@ -693,11 +871,10 @@ export default function ProblemSolvePage() {
                 Run Results
               </span>
               <span
-                className={`text-xs font-medium px-2 py-0.5 rounded-lg ${
-                  currentResult.status === "Accepted"
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                }`}
+                className={`text-xs font-medium px-2 py-0.5 rounded-lg ${currentResult.status === "Accepted"
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                  }`}
               >
                 {currentResult.passedTestCases}/{currentResult.totalTestCases} passed
               </span>
@@ -713,11 +890,10 @@ export default function ProblemSolvePage() {
             {currentResult.testCaseResults.map((result: TestCaseResult, idx: number) => (
               <div
                 key={idx}
-                className={`flex items-center gap-3 p-2 rounded-lg text-sm ${
-                  result.passed
-                    ? "bg-green-50 dark:bg-green-900/20"
-                    : "bg-red-50 dark:bg-red-900/20"
-                }`}
+                className={`flex items-center gap-3 p-2 rounded-lg text-sm ${result.passed
+                  ? "bg-green-50 dark:bg-green-900/20"
+                  : "bg-red-50 dark:bg-red-900/20"
+                  }`}
               >
                 {result.passed ? (
                   <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -750,83 +926,6 @@ export default function ProblemSolvePage() {
         </div>
       )}
 
-      {/* AI Review Panel */}
-      {showAiReview && (
-        <div className="mt-3 bg-white dark:bg-slate-900/80 border border-violet-200 dark:border-violet-800/50 rounded-xl overflow-hidden shadow-md">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-violet-200 dark:border-violet-800/50">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                AI Code Review
-              </span>
-              {aiReviewLoading && (
-                <span className="text-xs text-violet-500 dark:text-violet-400">
-                  Analyzing...
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setShowAiReview(false)}
-              className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto p-4">
-            {aiReviewLoading && !aiReviewResult ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full"></div>
-              </div>
-            ) : aiReviewResult ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                {aiReviewResult.split("\n").map((line, idx) => {
-                  if (line.startsWith("### ")) {
-                    return (
-                      <h3 key={idx} className="text-sm font-bold text-slate-900 dark:text-white mt-4 mb-2 first:mt-0">
-                        {line.replace("### ", "")}
-                      </h3>
-                    );
-                  }
-                  if (line.startsWith("```")) {
-                    return null;
-                  }
-                  if (line.trim() === "") {
-                    return <div key={idx} className="h-2" />;
-                  }
-                  // Handle bold text
-                  const parts = line.split(/(\*\*[^*]+\*\*)/g);
-                  return (
-                    <p key={idx} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed my-1">
-                      {parts.map((part, pidx) => {
-                        if (part.startsWith("**") && part.endsWith("**")) {
-                          return (
-                            <strong key={pidx} className="font-semibold text-slate-900 dark:text-white">
-                              {part.slice(2, -2)}
-                            </strong>
-                          );
-                        }
-                        // Handle inline code
-                        const codeParts = part.split(/(`[^`]+`)/g);
-                        return codeParts.map((cp, cpidx) => {
-                          if (cp.startsWith("`") && cp.endsWith("`")) {
-                            return (
-                              <code key={`${pidx}-${cpidx}`} className="text-xs bg-slate-100 dark:bg-slate-800 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded font-mono">
-                                {cp.slice(1, -1)}
-                              </code>
-                            );
-                          }
-                          return <span key={`${pidx}-${cpidx}`}>{cp}</span>;
-                        });
-                      })}
-                    </p>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-
       {/* Submission error */}
       {submissionError && (
         <div className="mt-3 text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950/30 p-3 rounded-xl border border-red-200 dark:border-red-900/50">
@@ -836,8 +935,11 @@ export default function ProblemSolvePage() {
     </div>
   );
 
+  const hasAcceptedSubmission = submissions.some((sub) => sub.status === "Accepted");
+  const aiReviewDisabled = !hasAcceptedSubmission;
+
   return (
-    <div className="w-full h-full flex flex-col" style={{ height: "calc(100vh - 48px)" }}>
+    <div className="w-full h-full flex flex-col overflow-hidden" style={{ height: "calc(100vh - 72px)" }}>
       {/* Top Bar */}
       <div className="mb-4 flex items-center justify-between flex-shrink-0 px-4 pt-4">
         <div className="flex items-center gap-4">
@@ -849,14 +951,28 @@ export default function ProblemSolvePage() {
             Back
           </button>
           <div className="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-            {problem.problemNumber}. {problem.title}
-          </h1>
-          <span
-            className={`px-2.5 py-0.5 rounded-lg text-xs font-medium ${colors.bg} ${colors.text} border ${colors.border}`}
-          >
-            {problem.difficulty}
-          </span>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+              {problem.problemNumber}. {problem.title}
+            </h1>
+            {/* AI Review Button */}
+            <button
+              onClick={handleAiReview}
+              disabled={aiReviewDisabled || aiReviewLoading}
+              title={aiReviewDisabled ? "Submit an Accepted solution to unlock AI Review" : "Request AI review of your code"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-md transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${aiReviewDisabled
+                ? "bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                }`}
+            >
+              {aiReviewLoading ? (
+                <div className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              AI Review
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Language Selector */}
@@ -879,11 +995,10 @@ export default function ProblemSolvePage() {
                   <button
                     key={lang.id}
                     onClick={() => handleLanguageChange(lang)}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                      selectedLanguage.id === lang.id
-                        ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30"
-                        : "text-slate-700 dark:text-slate-300"
-                    }`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${selectedLanguage.id === lang.id
+                      ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30"
+                      : "text-slate-700 dark:text-slate-300"
+                      }`}
                   >
                     {lang.label}
                   </button>
@@ -891,6 +1006,29 @@ export default function ProblemSolvePage() {
               </div>
             )}
           </div>
+
+          {/* Reset Template Button */}
+          <button
+            onClick={handleResetToTemplate}
+            title="Reset code to default template"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 hover:border-red-400 dark:hover:border-red-600 hover:text-red-600 dark:hover:text-red-400 hover:shadow-red-500/10 transition-all"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          {/* AI Hint Button */}
+          <button
+            onClick={handleAiHint}
+            disabled={aiHintLoading || !code.trim()}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-50 shadow-sm"
+          >
+            {aiHintLoading ? (
+              <div className="animate-spin w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full"></div>
+            ) : (
+              <Lightbulb className="w-4 h-4" />
+            )}
+            AI Hint
+          </button>
 
           {/* Run Button */}
           <button
@@ -918,46 +1056,6 @@ export default function ProblemSolvePage() {
               <Send className="w-4 h-4" />
             )}
             Submit
-          </button>
-
-          {/* AI Review Button */}
-          <button
-            onClick={handleAiReview}
-            disabled={aiReviewLoading || !code.trim()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-sm text-white hover:from-violet-700 hover:to-purple-700 active:scale-95 transition-all duration-150 shadow-md disabled:opacity-50"
-          >
-            {aiReviewLoading ? (
-              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-            AI Review
-          </button>
-
-          {/* Save as Template Button */}
-          <button
-            onClick={handleSaveAsTemplate}
-            disabled={savingTemplate}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all shadow-md ${
-              templateSaved
-                ? "bg-green-600 text-white"
-                : "bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 dark:hover:border-purple-600 hover:text-purple-600 dark:hover:text-purple-400"
-            } disabled:opacity-50`}
-          >
-            {savingTemplate ? (
-              <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full"></div>
-            ) : (
-              <FileText className="w-4 h-4" />
-            )}
-            {templateSaved ? "Saved!" : "Save Template"}
-          </button>
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-semibold rounded-lg transition-all duration-150 shadow-md hover:shadow-red-500/20"
-          >
-            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -1020,11 +1118,10 @@ function SubmissionCard({
 
   return (
     <div
-      className={`border rounded-xl overflow-hidden transition-all ${
-        isAccepted
-          ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-900/10"
-          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50"
-      }`}
+      className={`border rounded-xl overflow-hidden transition-all ${isAccepted
+        ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-900/10"
+        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50"
+        }`}
     >
       {/* Header */}
       <button
@@ -1038,11 +1135,10 @@ function SubmissionCard({
             <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
           )}
           <span
-            className={`text-sm font-semibold ${
-              isAccepted
-                ? "text-green-700 dark:text-green-400"
-                : "text-red-700 dark:text-red-400"
-            }`}
+            className={`text-sm font-semibold ${isAccepted
+              ? "text-green-700 dark:text-green-400"
+              : "text-red-700 dark:text-red-400"
+              }`}
           >
             {submission.status}
           </span>
@@ -1071,11 +1167,10 @@ function SubmissionCard({
           {submission.testCaseResults.map((tc, idx) => (
             <div
               key={idx}
-              className={`flex items-start gap-3 p-2 rounded-lg text-sm ${
-                tc.passed
-                  ? "bg-green-50 dark:bg-green-900/20"
-                  : "bg-red-50 dark:bg-red-900/20"
-              }`}
+              className={`flex items-start gap-3 p-2 rounded-lg text-sm ${tc.passed
+                ? "bg-green-50 dark:bg-green-900/20"
+                : "bg-red-50 dark:bg-red-900/20"
+                }`}
             >
               {tc.passed ? (
                 <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -1085,11 +1180,10 @@ function SubmissionCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`font-medium ${
-                      tc.passed
-                        ? "text-green-700 dark:text-green-400"
-                        : "text-red-700 dark:text-red-400"
-                    }`}
+                    className={`font-medium ${tc.passed
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-red-700 dark:text-red-400"
+                      }`}
                   >
                     Test Case {idx + 1}
                   </span>

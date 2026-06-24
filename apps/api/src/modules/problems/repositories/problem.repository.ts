@@ -1,16 +1,14 @@
 import { db } from "../../../config/database/mongodb.js";
 import { ObjectId, Filter, Document } from "mongodb";
-import { IProblem, IProblemFilter } from "../interfaces/problem.interface.js";
+import { IProblem, IProblemFilter, IProblemSummary, IProblemDetail } from "../interfaces/problem.interface.js";
 
 const problems = db.collection<IProblem>("problems");
 
 // Create indexes for efficient querying
 problems.createIndex({ slug: 1 }, { unique: true });
 problems.createIndex({ problemNumber: 1 }, { unique: true });
-problems.createIndex({ difficulty: 1 });
 problems.createIndex({ tags: 1 });
 problems.createIndex({ topics: 1 });
-problems.createIndex({ title: "text", description: "text" });
 
 export const findBySlug = async (slug: string) => {
   return problems.findOne({ slug });
@@ -49,21 +47,6 @@ export const findProblemsWithFilter = async (
 ) => {
   const query: Filter<Document> = {};
 
-  // Text search
-  if (filter.search) {
-    query.$or = [
-      { title: { $regex: filter.search, $options: "i" } },
-      { tags: { $regex: filter.search, $options: "i" } },
-      { note: { $regex: filter.search, $options: "i" } },
-      { description: { $regex: filter.search, $options: "i" } },
-    ];
-  }
-
-  // Difficulty filter
-  if (filter.difficulty && filter.difficulty.length > 0) {
-    query.difficulty = { $in: filter.difficulty } as any;
-  }
-
   // Tags filter
   if (filter.tags && filter.tags.length > 0) {
     query.tags = { $in: filter.tags };
@@ -78,18 +61,40 @@ export const findProblemsWithFilter = async (
   const limit = filter.limit || 20;
   const skip = (page - 1) * limit;
 
-  // Sort
-  const sortBy = filter.sortBy || "problemNumber";
-  const sortOrder = filter.sortOrder === "desc" ? -1 : 1;
-  const sort: Document = { [sortBy]: sortOrder };
+  // Always sort by problemNumber ascending
+  const sort: Document = { problemNumber: 1 };
 
+  // Return lightweight summaries (no description, examples, testCases)
   const [results, total] = await Promise.all([
-    problems.find(query).sort(sort).skip(skip).limit(limit).toArray(),
+    problems
+      .find(query, {
+        projection: {
+          _id: 1,
+          problemNumber: 1,
+          title: 1,
+          slug: 1,
+          tags: 1,
+          topics: 1,
+        },
+      })
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .toArray(),
     problems.countDocuments(query),
   ]);
 
+  const summaries: IProblemSummary[] = results.map((p) => ({
+    _id: p._id?.toString(),
+    problemNumber: p.problemNumber,
+    title: p.title,
+    slug: p.slug,
+    tags: p.tags,
+    topics: p.topics,
+  }));
+
   return {
-    problems: results,
+    problems: summaries,
     pagination: {
       total,
       page,
@@ -101,14 +106,43 @@ export const findProblemsWithFilter = async (
   };
 };
 
+export const findProblemDetail = async (slug: string): Promise<IProblemDetail | null> => {
+  const problem = await problems.findOne({ slug }, {
+    projection: {
+      _id: 1,
+      problemNumber: 1,
+      title: 1,
+      slug: 1,
+      description: 1,
+      constraints: 1,
+      examples: 1,
+      tags: 1,
+      topics: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  });
+
+  if (!problem) return null;
+
+  return {
+    _id: problem._id?.toString(),
+    problemNumber: problem.problemNumber,
+    title: problem.title,
+    slug: problem.slug,
+    description: problem.description,
+    constraints: problem.constraints,
+    examples: problem.examples,
+    tags: problem.tags,
+    topics: problem.topics,
+  };
+};
+
 export const getProblemStats = async () => {
   const stats = await problems
     .aggregate([
       {
         $facet: {
-          byDifficulty: [
-            { $group: { _id: "$difficulty", count: { $sum: 1 } } },
-          ],
           byTopic: [
             { $unwind: "$topics" },
             { $group: { _id: "$topics", count: { $sum: 1 } } },
@@ -126,7 +160,6 @@ export const getProblemStats = async () => {
     .toArray();
 
   return {
-    byDifficulty: stats[0]?.byDifficulty || [],
     byTopic: stats[0]?.byTopic || [],
     byTag: stats[0]?.byTag || [],
     total: stats[0]?.total[0]?.count || 0,

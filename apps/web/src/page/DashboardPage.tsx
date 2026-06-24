@@ -11,6 +11,9 @@ import {
   Zap,
   BookOpen,
   Trophy,
+  X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useAppSelector } from "../app/hooks";
 import { getDashboardStatsAPI, type DashboardStats } from "../feature/auth/authAPI";
@@ -34,6 +37,14 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [templates, setTemplates] = useState<CodeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSubmission, setSelectedSubmission] = useState<DashboardStats['recentSubmissions'][number] | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,7 +272,9 @@ export default function DashboardPage() {
             {stats.recentSubmissions.map((sub, idx) => (
               <div
                 key={idx}
-                className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                onClick={() => setSelectedSubmission(sub)}
+                className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group"
+                title="Click to view submitted code"
               >
                 <div className="flex items-center gap-3">
                   {sub.status === "Accepted" ? (
@@ -277,15 +290,84 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                     {sub.passedTestCases}/{sub.totalTestCases}
                   </span>
                   <span className="text-xs text-slate-400 dark:text-slate-500">
                     {new Date(sub.createdAt).toLocaleDateString()}
                   </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" />
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Code Viewer Modal */}
+      {selectedSubmission && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm transition-all duration-300">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] transform transition-transform duration-300 scale-100">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">
+                    {selectedSubmission.problemSlug.replace(/-/g, " ")}
+                  </h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    selectedSubmission.status === "Accepted"
+                      ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  }`}>
+                    {selectedSubmission.status}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Submitted on {new Date(selectedSubmission.createdAt).toLocaleString()} in <span className="font-semibold capitalize text-teal-600 dark:text-teal-400">{selectedSubmission.language}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-950 font-mono text-sm text-slate-200 relative group">
+              <button
+                onClick={() => handleCopyCode(selectedSubmission.code)}
+                className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 text-xs shadow-lg border border-slate-700/50"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy Code
+                  </>
+                )}
+              </button>
+              <pre className="whitespace-pre-wrap overflow-x-auto selection:bg-teal-500/30">
+                <code>{selectedSubmission.code}</code>
+              </pre>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 text-xs text-slate-500 dark:text-slate-400">
+              <span>Test Cases: {selectedSubmission.passedTestCases}/{selectedSubmission.totalTestCases} Passed</span>
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="px-4 py-2 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 rounded-lg font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

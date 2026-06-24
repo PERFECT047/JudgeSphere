@@ -1,13 +1,11 @@
-FROM node:20-slim-bookworm AS base
-
-RUN npm install -g typescript ts-node
+FROM node:20-slim AS base
 
 RUN groupadd -r judge && useradd -r -g judge -m -d /home/judge judge
 
+COPY run.sh /home/judge/run.sh
+RUN chown judge:judge /home/judge/run.sh && chmod +x /home/judge/run.sh
+
 USER judge
 WORKDIR /home/judge
-
-COPY --chown=judge:judge run.sh /home/judge/run.sh
-RUN chmod +x /home/judge/run.sh
 
 ENTRYPOINT ["/home/judge/run.sh"]

@@ -14,3 +14,19 @@ export const reviewCodeAPI = async (data: ReviewCodeRequest): Promise<ReviewCode
   const response = await axios.post<ReviewCodeResponse>("/ai-review/review", data);
   return response.data;
 };
+
+export interface GenerateHintRequest {
+  code: string;
+  language: string;
+  problemSlug: string;
+  previousHints: string[];
+}
+
+export interface GenerateHintResponse {
+  hint: string;
+}
+
+export const generateHintAPI = async (data: GenerateHintRequest): Promise<GenerateHintResponse> => {
+  const response = await axios.post<GenerateHintResponse>("/ai-review/hint", data);
+  return response.data;
+};

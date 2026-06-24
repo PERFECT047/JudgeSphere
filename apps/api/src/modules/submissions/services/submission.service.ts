@@ -15,15 +15,15 @@ export const runCode = async (userId: string, data: RunCodeDto) => {
     throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
 
-  const testCases = (problem.testCases || []) as { input: string; expectedOutput: string }[];
-  if (testCases.length === 0) {
-    throw new ApiError("No test cases found for this problem", HttpStatus.NOT_FOUND);
+  // Use examples for "Run" (quick check against sample cases)
+  const examples = (problem.examples || []) as { input: string; output: string }[];
+  if (examples.length === 0) {
+    throw new ApiError("No examples found for this problem", HttpStatus.NOT_FOUND);
   }
 
-  // Run against the first few test cases
-  const judgeTestCases: JudgeTestCase[] = testCases.map((tc) => ({
-    input: tc.input,
-    expectedOutput: tc.expectedOutput,
+  const judgeTestCases: JudgeTestCase[] = examples.map((ex) => ({
+    input: ex.input,
+    expectedOutput: ex.output,
   }));
 
   const result = await executeCodeRun({
@@ -31,6 +31,9 @@ export const runCode = async (userId: string, data: RunCodeDto) => {
     language: data.language,
     testCases: judgeTestCases,
   });
+
+  // Record problem state as Attempted
+  await recordProblemState(userId, data.problemSlug, "Attempted");
 
   return {
     totalTestCases: result.totalTestCases,
@@ -88,6 +91,10 @@ export const submitCode = async (userId: string, data: SubmitCodeDto) => {
     createdAt: new Date(),
   });
 
+  // Record problem state
+  const state = result.status === "Accepted" ? "Solved" : "Attempted";
+  await recordProblemState(userId, data.problemSlug, state);
+
   return {
     _id: submission._id?.toString(),
     problemSlug: submission.problemSlug,
@@ -144,4 +151,25 @@ export const runCustomTestCase = async (
     status: result.status,
     testCaseResults: result.testCaseResults,
   };
+};
+
+export const recordProblemState = async (userId: string, problemSlug: string, state: "Solved" | "Attempted") => {
+  const userProblemStates = db.collection("userProblemStates");
+
+  if (state === "Solved") {
+    await userProblemStates.updateOne(
+      { userId, problemSlug },
+      { $set: { state, updatedAt: new Date() } },
+      { upsert: true }
+    );
+  } else {
+    const currentState = await userProblemStates.findOne({ userId, problemSlug });
+    if (!currentState || currentState.state !== "Solved") {
+      await userProblemStates.updateOne(
+        { userId, problemSlug },
+        { $set: { state, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    }
+  }
 };

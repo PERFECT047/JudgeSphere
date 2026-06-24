@@ -11,7 +11,6 @@ export interface IProblem {
   problemNumber: number; // Our own DB numbering
   title: string;
   slug: string; // Unique slug for URL-friendly identifier
-  difficulty: "Easy" | "Medium" | "Hard";
   description: string;
   constraints: string[];
   examples: {
@@ -22,21 +21,40 @@ export interface IProblem {
   testCases: ITestCase[];
   tags: string[];
   topics: string[];
-  leetcodeNumber?: number; // Original LeetCode number for reference
-  note?: string; // Brief note/hint
-  acceptanceRate?: number;
-  isPremium: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
+/** Lightweight summary for problem list (no description/examples/testCases) */
+export interface IProblemSummary {
+  _id?: string;
+  problemNumber: number;
+  title: string;
+  slug: string;
+  tags: string[];
+  topics: string[];
+}
+
+/** Full detail for problem solve page (no testCases) */
+export interface IProblemDetail {
+  _id?: string;
+  problemNumber: number;
+  title: string;
+  slug: string;
+  description: string;
+  constraints: string[];
+  examples: {
+    input: string;
+    output: string;
+    explanation?: string;
+  }[];
+  tags: string[];
+  topics: string[];
+}
+
 export interface IProblemFilter {
-  search?: string;
-  difficulty?: string[];
   tags?: string[];
   topics?: string[];
   page?: number;
   limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
 }

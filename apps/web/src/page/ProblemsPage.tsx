@@ -1,17 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronLeft, ChevronRight, Filter, X, Tag, BookOpen } from "lucide-react";
-import { getProblems, getAllTopics, getAllTags, type Problem } from "../feature/problems/problemAPI";
-
-const DIFFICULTY_COLORS = {
-  Easy: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", border: "border-green-300 dark:border-green-700" },
-  Medium: { bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-400", border: "border-yellow-300 dark:border-yellow-700" },
-  Hard: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", border: "border-red-300 dark:border-red-700" },
-};
+import { Tag, BookOpen, CheckCircle, HelpCircle } from "lucide-react";
+import { getProblems, getAllTopics, getAllTags, type ProblemSummary } from "../feature/problems/problemAPI";
 
 export default function ProblemsPage() {
   const navigate = useNavigate();
-  const [problems, setProblems] = useState<Problem[]>([]);
+  const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -21,12 +15,8 @@ export default function ProblemsPage() {
     hasPrev: false,
   });
 
-  const [search, setSearch] = useState("");
-  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("problemNumber");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
 
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
@@ -41,14 +31,10 @@ export default function ProblemsPage() {
       setLoading(true);
       try {
         const result = await getProblems({
-          search: search || undefined,
-          difficulty: selectedDifficulties.length > 0 ? selectedDifficulties : undefined,
           topics: selectedTopics.length > 0 ? selectedTopics : undefined,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           page: currentPage,
           limit: 20,
-          sortBy,
-          sortOrder,
         });
         setProblems(result.problems);
         setPagination(result.pagination);
@@ -62,7 +48,7 @@ export default function ProblemsPage() {
     };
     fetchProblems();
     return () => controller.abort();
-  }, [search, selectedDifficulties, selectedTopics, selectedTags, currentPage, sortBy, sortOrder]);
+  }, [selectedTopics, selectedTags, currentPage]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -76,13 +62,6 @@ export default function ProblemsPage() {
     };
     fetchFilters();
   }, []);
-
-  const toggleDifficulty = (diff: string) => {
-    setSelectedDifficulties((prev) =>
-      prev.includes(diff) ? prev.filter((d) => d !== diff) : [...prev, diff]
-    );
-    setCurrentPage(1);
-  };
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -99,27 +78,12 @@ export default function ProblemsPage() {
   };
 
   const clearFilters = () => {
-    setSearch("");
-    setSelectedDifficulties([]);
     setSelectedTopics([]);
     setSelectedTags([]);
-    setSortBy("problemNumber");
-    setSortOrder("asc");
     setCurrentPage(1);
   };
 
-  const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
-    setCurrentPage(1);
-  };
-
-  const activeFilterCount =
-    selectedDifficulties.length + selectedTopics.length + selectedTags.length;
+  const activeFilterCount = selectedTopics.length + selectedTags.length;
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8">
@@ -135,23 +99,9 @@ export default function ProblemsPage() {
         </div>
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="mb-6 space-y-4">
-        {/* Search Bar */}
+      {/* Filter Bar */}
+      <div className="mb-6">
         <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search problems by title, tag, or description..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-            />
-          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
@@ -160,7 +110,7 @@ export default function ProblemsPage() {
                 : "bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600"
             }`}
           >
-            <Filter className="w-4 h-4" />
+            <Tag className="w-4 h-4" />
             Filters
             {activeFilterCount > 0 && (
               <span className="bg-teal-600 text-white text-xs rounded-full px-2 py-0.5">
@@ -172,36 +122,14 @@ export default function ProblemsPage() {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-4 shadow-md">
-            {/* Difficulty Filter */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">
-                Difficulty
-              </label>
-              <div className="flex gap-2">
-                {["Easy", "Medium", "Hard"].map((diff) => (
-                  <button
-                    key={diff}
-                    onClick={() => toggleDifficulty(diff)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedDifficulties.includes(diff)
-                        ? `${DIFFICULTY_COLORS[diff as keyof typeof DIFFICULTY_COLORS].bg} ${DIFFICULTY_COLORS[diff as keyof typeof DIFFICULTY_COLORS].text} border ${DIFFICULTY_COLORS[diff as keyof typeof DIFFICULTY_COLORS].border}`
-                        : "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    {diff}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+          <div className="mt-4 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-4 shadow-md">
             {/* Topics Filter */}
             <div>
               <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">
                 Topics
               </label>
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {availableTopics.map((topic) => (
+                {availableTopics.map((topic: string) => (
                   <button
                     key={topic}
                     onClick={() => toggleTopic(topic)}
@@ -223,7 +151,7 @@ export default function ProblemsPage() {
                 Tags
               </label>
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {availableTags.map((tag) => (
+                {availableTags.map((tag: string) => (
                   <button
                     key={tag}
                     onClick={() => toggleTag(tag)}
@@ -245,7 +173,7 @@ export default function ProblemsPage() {
                 onClick={clearFilters}
                 className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <Tag className="w-4 h-4" />
                 Clear all filters
               </button>
             )}
@@ -254,40 +182,28 @@ export default function ProblemsPage() {
 
         {/* Active Filters Display */}
         {activeFilterCount > 0 && !showFilters && (
-          <div className="flex flex-wrap gap-2">
-            {selectedDifficulties.map((diff) => (
-              <span
-                key={diff}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${DIFFICULTY_COLORS[diff as keyof typeof DIFFICULTY_COLORS].bg} ${DIFFICULTY_COLORS[diff as keyof typeof DIFFICULTY_COLORS].text}`}
-              >
-                {diff}
-                <X
-                  className="w-3 h-3 cursor-pointer"
-                  onClick={() => toggleDifficulty(diff)}
-                />
-              </span>
-            ))}
-            {selectedTopics.map((topic) => (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {selectedTopics.map((topic: string) => (
               <span
                 key={topic}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
               >
-                <Tag className="w-3 h-3" />
+                <BookOpen className="w-3 h-3" />
                 {topic}
-                <X
+                <Tag
                   className="w-3 h-3 cursor-pointer"
                   onClick={() => toggleTopic(topic)}
                 />
               </span>
             ))}
-            {selectedTags.map((tag) => (
+            {selectedTags.map((tag: string) => (
               <span
                 key={tag}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
               >
-                <BookOpen className="w-3 h-3" />
+                <Tag className="w-3 h-3" />
                 {tag}
-                <X
+                <Tag
                   className="w-3 h-3 cursor-pointer"
                   onClick={() => toggleTag(tag)}
                 />
@@ -301,16 +217,10 @@ export default function ProblemsPage() {
       <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-md">
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          <div className="col-span-1 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200" onClick={() => handleSort("problemNumber")}>
-            # {sortBy === "problemNumber" && (sortOrder === "asc" ? "↑" : "↓")}
-          </div>
-          <div className="col-span-5 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200" onClick={() => handleSort("title")}>
-            Title {sortBy === "title" && (sortOrder === "asc" ? "↑" : "↓")}
-          </div>
-          <div className="col-span-2 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200" onClick={() => handleSort("difficulty")}>
-            Difficulty {sortBy === "difficulty" && (sortOrder === "asc" ? "↑" : "↓")}
-          </div>
-          <div className="col-span-4">Topics</div>
+          <div className="col-span-1">#</div>
+          <div className="col-span-5">Title</div>
+          <div className="col-span-3">Topics</div>
+          <div className="col-span-3">Tags</div>
         </div>
 
         {/* Table Body */}
@@ -324,50 +234,62 @@ export default function ProblemsPage() {
             No problems found matching your criteria.
           </div>
         ) : (
-          problems.map((problem) => {
-            const colors = DIFFICULTY_COLORS[problem.difficulty];
-            return (
-              <div
-                key={problem._id}
-                onClick={() => navigate(`/problems/${problem.slug}`)}
-                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-              >
-                <div className="col-span-1 text-slate-500 dark:text-slate-400 text-sm font-mono">
-                  {problem.problemNumber}
-                </div>
-                <div className="col-span-5">
-                  <div className="text-sm font-medium text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-                    {problem.title}
-                  </div>
-                  {problem.note && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{problem.note}</div>
-                  )}
-                </div>
-                <div className="col-span-2">
-                  <span
-                    className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-medium ${colors.bg} ${colors.text} border ${colors.border}`}
-                  >
-                    {problem.difficulty}
+          problems.map((problem) => (
+            <div
+              key={problem._id}
+              onClick={() => navigate(`/problems/${problem.slug}`)}
+              className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+            >
+              <div className="col-span-1 text-slate-500 dark:text-slate-400 text-sm font-mono">
+                {problem.problemNumber}
+              </div>
+              <div className="col-span-5 flex items-center gap-2">
+                {problem.state === "Solved" && (
+                  <span title="Solved" className="flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                   </span>
-                </div>
-                <div className="col-span-4 flex flex-wrap gap-1">
-                  {problem.topics.slice(0, 3).map((topic) => (
-                    <span
-                      key={topic}
-                      className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    >
-                      {topic}
-                    </span>
-                  ))}
-                  {problem.topics.length > 3 && (
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500">
-                      +{problem.topics.length - 3}
-                    </span>
-                  )}
+                )}
+                {problem.state === "Attempted" && (
+                  <span title="Attempted" className="flex-shrink-0">
+                    <HelpCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                  </span>
+                )}
+                <div className="text-sm font-medium text-slate-900 dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                  {problem.title}
                 </div>
               </div>
-            );
-          })
+              <div className="col-span-3 flex flex-wrap gap-1">
+                {problem.topics.slice(0, 2).map((topic: string) => (
+                  <span
+                    key={topic}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                  >
+                    {topic}
+                  </span>
+                ))}
+                {problem.topics.length > 2 && (
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500">
+                    +{problem.topics.length - 2}
+                  </span>
+                )}
+              </div>
+              <div className="col-span-3 flex flex-wrap gap-1">
+                {(problem.tags || []).slice(0, 2).map((tag: string) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-900/50"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {(problem.tags || []).length > 2 && (
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-500 border border-teal-100 dark:border-teal-900/50">
+                    +{(problem.tags || []).length - 2}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
         )}
       </div>
 
@@ -390,7 +312,7 @@ export default function ProblemsPage() {
               disabled={!pagination.hasPrev}
               className="px-3 py-2 rounded-lg text-sm font-medium bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronLeft className="w-4 h-4" />
+              ‹
             </button>
 
             {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
@@ -424,7 +346,7 @@ export default function ProblemsPage() {
               disabled={!pagination.hasNext}
               className="px-3 py-2 rounded-lg text-sm font-medium bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronRight className="w-4 h-4" />
+              ›
             </button>
             <button
               onClick={() => setCurrentPage(pagination.totalPages)}

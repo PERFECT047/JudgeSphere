@@ -56,6 +56,7 @@ export interface DashboardStats {
     createdAt: string;
     passedTestCases: number;
     totalTestCases: number;
+    code: string;
   }[];
 }
 

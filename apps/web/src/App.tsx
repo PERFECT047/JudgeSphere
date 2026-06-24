@@ -6,9 +6,10 @@ import ProblemSolvePage from "./page/ProblemSolvePage";
 import SnippetManagerPage from "./page/SnippetManagerPage";
 import SettingsPage from "./page/SettingsPage";
 import AppLayout from "./layout/AppLayout";
+import { useAppSelector } from "./app/hooks";
 
 function App() {
-  const token = localStorage.getItem("token");
+  const token = useAppSelector((state) => state.auth.token);
 
   return (
     <Router>

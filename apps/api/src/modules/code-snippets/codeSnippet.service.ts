@@ -1,5 +1,5 @@
 import { ApiError } from "../../common/errors/apiError.js";
-import { HttpStatus } from "../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import * as snippetRepo from "./codeSnippet.repository.js";
 import type { ICodeSnippetFilter } from "./codeSnippet.interface.js";
 

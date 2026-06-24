@@ -1,6 +1,6 @@
 import { env } from "@repo/env/server";
 import { ApiError } from "../../common/errors/apiError.js";
-import { HttpStatus } from "../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 // deepseek/deepseek-r1-0528 is no longer free on OpenRouter.

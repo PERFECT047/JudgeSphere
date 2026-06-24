@@ -1,7 +1,7 @@
 import * as problemRepo from "../repositories/problem.repository.js";
 import { IProblem, IProblemFilter } from "../interfaces/problem.interface.js";
 import { ApiError } from "../../../common/errors/apiError.js";
-import { HttpStatus } from "../../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 
 export const getProblems = async (filter: IProblemFilter) => {
   return problemRepo.findProblemsWithFilter(filter);

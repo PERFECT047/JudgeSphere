@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../errors/apiError.js";
-import { HttpStatus } from "../constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 
 export const errorHandler = (
   err: any,

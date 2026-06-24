@@ -1,17 +1,27 @@
-import axios from "axios";
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { handleFrontendError } from "../common/errorHandler";
 import { store } from "../app/store";
+import { env as clientEnv } from "@repo/env/client";
+import { HttpStatus } from "@repo/dto";
+
+/** Extended config with optional retry flag */
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: clientEnv.VITE_API_URL,
   withCredentials: true,
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (value: any) => void; reject: (reason?: any) => void }> = [];
+let failedQueue: Array<{
+  resolve: (value: string | null) => void;
+  reject: (reason: unknown) => void;
+}> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
@@ -20,6 +30,9 @@ const processQueue = (error: any, token: string | null = null) => {
   });
   failedQueue = [];
 };
+
+/** Routes that should NOT trigger token refresh on 401 */
+const AUTH_ROUTES = ["/user/login", "/user/signup"];
 
 instance.interceptors.request.use((config) => {
   const state = store.getState();
@@ -32,23 +45,28 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
-interface NormalizedError extends Error {
-  status?: number;
-}
-
 instance.interceptors.response.use(
   (res) => res,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetryableRequestConfig | undefined;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // Don't intercept 401 on login/signup — let the error flow to the thunk
+    if (
+      error.response?.status === HttpStatus.UNAUTHORIZED &&
+      !originalRequest._retry &&
+      !AUTH_ROUTES.some((route) => originalRequest.url?.includes(route))
+    ) {
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string | null>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(() => {
-          const state = store.getState();
-          const token = state.auth.token;
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+        }).then((token: string | null) => {
+          if (token) {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }
           return instance(originalRequest);
         });
       }
@@ -58,12 +76,16 @@ instance.interceptors.response.use(
 
       try {
         const response = await axios.post<{ token: string }>(
-          `${import.meta.env.VITE_API_URL}/user/refresh`,
+          `${clientEnv.VITE_API_URL}/user/refresh`,
           {},
           { withCredentials: true }
         );
 
         const { token } = response.data;
+
+        // Store the new token
+        localStorage.setItem("token", token);
+        store.dispatch({ type: "auth/updateToken", payload: token });
 
         originalRequest.headers.Authorization = `Bearer ${token}`;
         processQueue(null, token);
@@ -73,19 +95,20 @@ instance.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
+        localStorage.removeItem("token");
+        store.dispatch({ type: "auth/logout" });
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }
     }
 
+    const axiosError = error as AxiosError<{ message?: string }>;
     const message =
-      error?.response?.data?.message || error?.message || "Request failed";
+      axiosError.response?.data?.message || error.message || "Request failed";
 
-    const normalized: NormalizedError = new Error(message);
-    normalized.status = error?.response?.status;
-    handleFrontendError(normalized);
+    handleFrontendError(message);
 
-    return Promise.reject(normalized);
+    return Promise.reject(error);
   }
 );
 

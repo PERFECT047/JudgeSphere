@@ -1,6 +1,6 @@
 import { db } from "../../../config/database/mongodb.js";
 import { ApiError } from "../../../common/errors/apiError.js";
-import { HttpStatus } from "../../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import type { RunCodeDto, SubmitCodeDto } from "@repo/dto";
 import { createSubmission, getSubmissionsByUserAndProblem } from "../repositories/submission.repository.js";
 import type { ITestCaseResult } from "../interfaces/submission.interface.js";

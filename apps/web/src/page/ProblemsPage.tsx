@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronLeft, ChevronRight, Filter, X, Tag, BookOpen, LogOut } from "lucide-react";
-import { useAppDispatch } from "../app/hooks";
-import { logout } from "../feature/auth/authSlice";
-import { logoutAPI } from "../feature/auth/authAPI";
+import { Search, ChevronLeft, ChevronRight, Filter, X, Tag, BookOpen } from "lucide-react";
 import { getProblems, getAllTopics, getAllTags, type Problem } from "../feature/problems/problemAPI";
 
 const DIFFICULTY_COLORS = {
@@ -14,7 +11,6 @@ const DIFFICULTY_COLORS = {
 
 export default function ProblemsPage() {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -81,17 +77,6 @@ export default function ProblemsPage() {
     fetchFilters();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await logoutAPI();
-    } catch (error) {
-      console.error("Logout API error:", error);
-    } finally {
-      dispatch(logout());
-      window.location.href = "/login";
-    }
-  };
-
   const toggleDifficulty = (diff: string) => {
     setSelectedDifficulties((prev) =>
       prev.includes(diff) ? prev.filter((d) => d !== diff) : [...prev, diff]
@@ -148,13 +133,6 @@ export default function ProblemsPage() {
             {pagination.total} problems total • Practice and improve your skills
           </p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-semibold rounded-lg transition-all duration-150 shadow-md hover:shadow-red-500/20"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
       </div>
 
       {/* Search and Filter Bar */}

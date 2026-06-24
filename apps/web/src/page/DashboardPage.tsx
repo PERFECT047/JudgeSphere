@@ -6,16 +6,14 @@ import {
   TrendingUp,
   Clock,
   ArrowRight,
-  LogOut,
   Settings,
   FileText,
   Zap,
   BookOpen,
   Trophy,
 } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { logout } from "../feature/auth/authSlice";
-import { logoutAPI, getDashboardStatsAPI, type DashboardStats } from "../feature/auth/authAPI";
+import { useAppSelector } from "../app/hooks";
+import { getDashboardStatsAPI, type DashboardStats } from "../feature/auth/authAPI";
 import { getAllTemplates, type CodeTemplate } from "../feature/snippets/snippetsAPI";
 
 const LANGUAGES = [
@@ -31,7 +29,6 @@ const LANGUAGES = [
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -55,17 +52,6 @@ export default function DashboardPage() {
     };
     fetchData();
   }, []);
-
-  const handleLogout = async () => {
-    try {
-      await logoutAPI();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      dispatch(logout());
-      window.location.href = "/login";
-    }
-  };
 
   const statCards = [
     {
@@ -150,13 +136,6 @@ export default function DashboardPage() {
             Here's your coding progress overview
           </p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-semibold rounded-lg transition-all duration-150 shadow-md"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
       </div>
 
       {/* Stats Grid */}

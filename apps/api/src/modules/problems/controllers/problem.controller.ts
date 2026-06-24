@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as problemService from "../services/problem.service.js";
-import { HttpStatus } from "../../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import { IProblemFilter } from "../interfaces/problem.interface.js";
 
 export const getProblems = async (

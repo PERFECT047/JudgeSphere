@@ -1,4 +1,4 @@
-import { HttpStatus } from "../constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 
 export class ApiError extends Error {
   statusCode: HttpStatus;

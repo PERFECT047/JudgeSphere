@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as snippetService from "./codeSnippet.service.js";
-import { HttpStatus } from "../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import type { ICodeSnippetFilter } from "./codeSnippet.interface.js";
 
 // ========== TEMPLATES ==========

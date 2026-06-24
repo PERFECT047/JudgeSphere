@@ -4,7 +4,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { findByEmail, findById, createUser, updateUser, updatePassword } from "../repository/user.repository.js";
 import { env } from "@repo/env/server";
 import { ApiError } from "../../../common/errors/apiError.js";
-import { HttpStatus } from "../../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import type { CreateUserDto, LoginDto, AuthResponseDto, RefreshTokenDto, RefreshTokenResponseDto, UpdateProfileDto, ChangePasswordDto } from "@repo/dto";
 
 

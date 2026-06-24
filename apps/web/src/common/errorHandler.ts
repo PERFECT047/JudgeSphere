@@ -1,4 +1,5 @@
 import toast from "react-hot-toast";
+import { HttpStatus } from "@repo/dto";
 
 type ErrorHandle = Error & { status?: number; data?: unknown };
 
@@ -7,7 +8,7 @@ export type HandlerOptions = {
   forceToast?: boolean;
 };
 
-export const defaultSilent = [401];
+export const defaultSilent = [HttpStatus.UNAUTHORIZED];
 
 export function handleFrontendError(err: unknown, opts?: HandlerOptions) {
   const { silentStatuses = defaultSilent, forceToast } = opts || {};

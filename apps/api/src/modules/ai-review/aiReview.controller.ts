@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { reviewCode } from "./aiReview.service.js";
 import { ApiError } from "../../common/errors/apiError.js";
-import { HttpStatus } from "../../common/constants/httpStatus.js";
+import { HttpStatus } from "@repo/dto";
 import { findBySlug } from "../problems/repositories/problem.repository.js";
 
 interface ReviewRequestBody {

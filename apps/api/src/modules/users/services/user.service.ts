@@ -4,6 +4,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { findByEmail, findById, createUser, updateUser, updatePassword } from "../repository/user.repository";
 import { env } from "@repo/env/server";
 import { ApiError } from "../../../common/errors/apiError";
+import { HttpStatus } from "../../../common/constants/httpStatus";
 import type { CreateUserDto, LoginDto, AuthResponseDto, RefreshTokenDto, RefreshTokenResponseDto, UpdateProfileDto, ChangePasswordDto } from "@repo/dto";
 
 
@@ -31,7 +32,7 @@ export const signup = async (data: CreateUserDto): Promise<AuthResponseDto> => {
   const existing = await findByEmail(data.email);
 
   if (existing) {
-    throw new ApiError("Email already in use", 400);
+    throw new ApiError("Email already in use", HttpStatus.BAD_REQUEST);
   }
 
   const hashed = await bcrypt.hash(data.password, 10);
@@ -60,13 +61,13 @@ export const signin = async (data: LoginDto): Promise<AuthResponseDto> => {
   const user = await findByEmail(data.email);
 
   if (!user) {
-    throw new ApiError("Invalid credentials", 401);
+    throw new ApiError("Invalid credentials", HttpStatus.UNAUTHORIZED);
   }
 
   const match = await bcrypt.compare(data.password, user.password);
 
   if (!match) {
-    throw new ApiError("Invalid credentials", 401);
+    throw new ApiError("Invalid credentials", HttpStatus.UNAUTHORIZED);
   }
 
   const tokens = generateTokens(user._id.toString(), user.email);
@@ -89,12 +90,12 @@ export const refreshTokenService = async (
     const raw = jwt.verify(data.refreshToken, env.JWT_SECRET);
 
     if (!isJwtPayload(raw)) {
-      throw new ApiError("Invalid token payload", 401);
+      throw new ApiError("Invalid token payload", HttpStatus.UNAUTHORIZED);
     }
 
     const user = await findByEmail(raw.email);
     if (!user) {
-      throw new ApiError("User not found", 401);
+      throw new ApiError("User not found", HttpStatus.UNAUTHORIZED);
     }
 
     const tokens = generateTokens(user._id.toString(), user.email);
@@ -102,7 +103,7 @@ export const refreshTokenService = async (
     return tokens;
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
-      throw new ApiError("Invalid or expired refresh token", 401);
+      throw new ApiError("Invalid or expired refresh token", HttpStatus.UNAUTHORIZED);
     }
     throw error;
   }
@@ -113,7 +114,7 @@ export const refreshTokenService = async (
 export const getProfile = async (userId: string) => {
   const user = await findById(userId);
   if (!user) {
-    throw new ApiError("User not found", 404);
+    throw new ApiError("User not found", HttpStatus.NOT_FOUND);
   }
 
   return {
@@ -127,14 +128,14 @@ export const getProfile = async (userId: string) => {
 export const updateProfile = async (userId: string, data: UpdateProfileDto) => {
   const user = await findById(userId);
   if (!user) {
-    throw new ApiError("User not found", 404);
+    throw new ApiError("User not found", HttpStatus.NOT_FOUND);
   }
 
   // If email is being changed, check it's not already used
   if (data.email && data.email !== user.email) {
     const existing = await findByEmail(data.email);
     if (existing) {
-      throw new ApiError("Email already in use", 400);
+      throw new ApiError("Email already in use", HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -143,12 +144,12 @@ export const updateProfile = async (userId: string, data: UpdateProfileDto) => {
   if (data.email) updates.email = data.email;
 
   if (Object.keys(updates).length === 0) {
-    throw new ApiError("No fields to update", 400);
+    throw new ApiError("No fields to update", HttpStatus.BAD_REQUEST);
   }
 
   const updated = await updateUser(userId, updates);
   if (!updated) {
-    throw new ApiError("Failed to update profile", 500);
+    throw new ApiError("Failed to update profile", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   return {
@@ -161,19 +162,19 @@ export const updateProfile = async (userId: string, data: UpdateProfileDto) => {
 export const changePassword = async (userId: string, data: ChangePasswordDto) => {
   const user = await findById(userId);
   if (!user) {
-    throw new ApiError("User not found", 404);
+    throw new ApiError("User not found", HttpStatus.NOT_FOUND);
   }
 
   const match = await bcrypt.compare(data.currentPassword, user.password);
   if (!match) {
-    throw new ApiError("Current password is incorrect", 401);
+    throw new ApiError("Current password is incorrect", HttpStatus.UNAUTHORIZED);
   }
 
   const hashed = await bcrypt.hash(data.newPassword, 10);
   const updated = await updatePassword(userId, hashed);
 
   if (!updated) {
-    throw new ApiError("Failed to update password", 500);
+    throw new ApiError("Failed to update password", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   return { message: "Password updated successfully" };

@@ -1,5 +1,6 @@
 import { db } from "../../../config/database/mongodb";
 import { ApiError } from "../../../common/errors/apiError";
+import { HttpStatus } from "../../../common/constants/httpStatus";
 import type { RunCodeDto, SubmitCodeDto } from "@repo/dto";
 import { createSubmission, getSubmissionsByUserAndProblem } from "../repositories/submission.repository";
 import type { ITestCaseResult } from "../interfaces/submission.interface";
@@ -11,12 +12,12 @@ const problems = db.collection("problems");
 export const runCode = async (userId: string, data: RunCodeDto) => {
   const problem = await problems.findOne({ slug: data.problemSlug });
   if (!problem) {
-    throw new ApiError("Problem not found", 404);
+    throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
 
   const testCases = (problem.testCases || []) as { input: string; expectedOutput: string }[];
   if (testCases.length === 0) {
-    throw new ApiError("No test cases found for this problem", 404);
+    throw new ApiError("No test cases found for this problem", HttpStatus.NOT_FOUND);
   }
 
   // Run against the first few test cases
@@ -42,12 +43,12 @@ export const runCode = async (userId: string, data: RunCodeDto) => {
 export const submitCode = async (userId: string, data: SubmitCodeDto) => {
   const problem = await problems.findOne({ slug: data.problemSlug });
   if (!problem) {
-    throw new ApiError("Problem not found", 404);
+    throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
 
   const testCases = (problem.testCases || []) as { input: string; expectedOutput: string }[];
   if (testCases.length === 0) {
-    throw new ApiError("No test cases found for this problem", 404);
+    throw new ApiError("No test cases found for this problem", HttpStatus.NOT_FOUND);
   }
 
   // Run against ALL test cases
@@ -122,7 +123,7 @@ export const runCustomTestCase = async (
 ) => {
   const problem = await problems.findOne({ slug: data.problemSlug });
   if (!problem) {
-    throw new ApiError("Problem not found", 404);
+    throw new ApiError("Problem not found", HttpStatus.NOT_FOUND);
   }
 
   // Run against the custom test case

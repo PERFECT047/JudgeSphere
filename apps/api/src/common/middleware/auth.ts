@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "@repo/env/server";
+import { HttpStatus } from "../constants/httpStatus";
 
 export interface AuthPayload {
   userId: string;
@@ -19,7 +20,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Authentication required" });
+    return res.status(HttpStatus.UNAUTHORIZED).json({ message: "Authentication required" });
   }
 
   const token = authHeader.split(" ")[1];
@@ -29,6 +30,6 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
     req.user = { userId: decoded.sub, email: decoded.email };
     next();
   } catch {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return res.status(HttpStatus.UNAUTHORIZED).json({ message: "Invalid or expired token" });
   }
 };
